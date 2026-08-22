@@ -7,6 +7,7 @@ use App\Services\Images\ImageStorageService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class CompanyService
 {
@@ -64,6 +65,22 @@ class CompanyService
 
     public function delete(Company $company): bool
     {
+        if ($company->cashRegisters()->exists()) {
+            throw ValidationException::withMessages([
+                'company' => 'No puedes eliminar una empresa que tiene historial de cajas.',
+            ]);
+        }
+
+        if (
+            $company->productCategories()->exists()
+            || $company->customers()->exists()
+            || $company->products()->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'company' => 'No puedes eliminar una empresa que tiene productos o parametros registrados.',
+            ]);
+        }
+
         if ($company->logo_path) {
             Storage::disk('public')->delete($company->logo_path);
         }

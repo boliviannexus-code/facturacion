@@ -14,6 +14,7 @@ if (! function_exists('role_label')) {
             'admin' => 'Administrador',
             'super_admin' => 'Super administrador',
             'manager' => 'Gerente',
+            'cashier' => 'Cajero',
             'viewer' => 'Visualizador',
         ];
 
@@ -31,8 +32,12 @@ if (! function_exists('permission_module_label')) {
             'permissions' => 'Permisos',
             'companies' => 'Empresas',
             'audits' => 'Auditoria',
-            'accommodation-catalogs' => 'Catalogos de alojamientos',
-            'spaces' => 'Alojamientos',
+            'cash-registers' => 'Cajas',
+            'invoices' => 'Facturacion',
+            'product-categories' => 'Categorias',
+            'customers' => 'Clientes',
+            'products' => 'Productos',
+            'sin-authorizations' => 'Autorizacion SIN',
         ];
 
         return $labels[$module] ?? str($module)->replace(['-', '_'], ' ')->headline()->toString();
@@ -53,6 +58,9 @@ if (! function_exists('permission_action_label')) {
             'assign-roles' => 'Asignar roles',
             'assign-permissions' => 'Asignar permisos',
             'manage' => 'Administrar',
+            'open' => 'Abrir',
+            'close' => 'Cerrar',
+            'issue' => 'Emitir',
         ];
 
         return $labels[$action] ?? str($action)->replace(['-', '_'], ' ')->headline()->toString();
@@ -87,6 +95,9 @@ if (! function_exists('permission_action_description')) {
             'assign-permissions' => 'Puede configurar los accesos de los roles.',
             'manage' => 'Tiene control completo sobre este modulo.',
             'approve' => 'Puede revisar y aprobar solicitudes.',
+            'open' => 'Puede abrir una caja propia.',
+            'close' => 'Puede cerrar su caja activa.',
+            'issue' => 'Puede preparar y emitir facturas.',
         ];
 
         return $descriptions[$action] ?? 'Permite ejecutar la accion '.str($action)->replace(['-', '_'], ' ')->lower()->toString().'.';

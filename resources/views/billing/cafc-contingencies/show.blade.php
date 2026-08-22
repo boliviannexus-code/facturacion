@@ -1,0 +1,31 @@
+@extends('layouts.admin')
+
+@section('title', 'CAFC '.$range->cafc_code.' | '.config('app.name'))
+@section('page-title', 'CAFC '.$range->cafc_code)
+@section('page-subtitle', $sectorTitle.' · '.$range->branch->display_name)
+
+@section('content')
+<div class="row g-3">
+    <div class="col-12 col-xl-4">
+        <div class="card c2-identity mb-3"><div class="card-body"><span class="text-uppercase small fw-bold text-primary">Autorización activa</span><div class="display-6 fw-bold my-2">{{ $range->remaining_count }}</div><div class="text-secondary">números disponibles de {{ $range->range_start }} a {{ $range->range_end }}</div><hr><dl class="row mb-0"><dt class="col-5">Sector</dt><dd class="col-7">{{ $sectorTitle }}</dd><dt class="col-5">Evento SIN</dt><dd class="col-7">@if($range->significantEvent)<strong>{{ $range->significantEvent->event_code }}</strong> · {{ $range->significantEvent->event_description }}<div class="small text-success">Recepción: {{ $range->significantEvent->reception_code ?? 'registrada' }}</div>@else<span class="badge bg-warning-lt">Pendiente de registro</span>@endif</dd>@if($range->significantEvent)<dt class="col-5">Periodo evento</dt><dd class="col-7">{{ $range->significantEvent->started_at->format('d/m/Y H:i:s') }}<br>{{ $range->significantEvent->ended_at->format('d/m/Y H:i:s') }}</dd>@endif<dt class="col-5">Siguiente</dt><dd class="col-7 fw-bold">{{ $range->next_number }}</dd><dt class="col-5">Vigencia</dt><dd class="col-7">{{ $range->authorized_until->format('d/m/Y') }}</dd></dl></div></div>
+        @can('manual-cafc.use') @if(!$range->significantEvent)
+        <div class="card"><div class="card-header"><h3 class="card-title">Nueva factura de contingencia</h3></div><form method="POST" action="{{ route('billing.cafc-contingencies.invoices.store', $range) }}">@csrf<div class="card-body"><div class="row g-3">
+            <div class="col-12"><label class="form-label">Punto de venta</label><select class="form-select" name="sin_point_of_sale_id" required>@foreach($points as $point)<option value="{{ $point->id }}">{{ $point->display_name }}</option>@endforeach</select></div>
+            <div class="col-6"><label class="form-label">Número físico</label><input class="form-control" type="number" name="manual_invoice_number" min="{{ $range->range_start }}" max="{{ $range->range_end }}" value="{{ old('manual_invoice_number', $range->next_number) }}" required></div>
+            <div class="col-6"><label class="form-label">Fecha factura</label><input class="form-control" type="datetime-local" step="1" name="issued_manually_at" value="{{ old('issued_manually_at') }}" required></div>
+        </div></div><div class="card-footer d-grid"><button class="btn btn-primary" @disabled(!$canConsume)><i class="ti ti-file-pencil me-1"></i>Continuar a transcripción</button></div></form></div>
+        @endif @endcan
+    </div>
+    <div class="col-12 col-xl-8">
+        @can('manual-cafc.use') @if(!$range->significantEvent)
+        <div class="card border-warning mb-3"><div class="card-header"><div><h3 class="card-title">Finalizar contingencia</h3><div class="small text-secondary">Cuando termines de transcribir todas las facturas, registra el evento ante el SIN.</div></div></div><form method="POST" action="{{ route('billing.cafc-contingencies.finalize', $range) }}">@csrf<div class="card-body"><div class="row g-3"><div class="col-12"><label class="form-label">Caso de contingencia</label><select class="form-select" name="event_code" required data-c2-event><option value="">Seleccionar caso 5, 6 o 7</option>@foreach($events as $event)<option value="{{ $event->classifier_code }}" data-description="{{ $event->description }}">{{ $event->classifier_code }} · {{ $event->description }}</option>@endforeach</select><input type="hidden" name="event_description" data-c2-event-description></div><div class="col-md-6"><label class="form-label">Inicio del evento</label><input class="form-control" type="datetime-local" step="1" name="event_started_at" required></div><div class="col-md-6"><label class="form-label">Fin del evento</label><input class="form-control" type="datetime-local" step="1" name="event_ended_at" required></div></div></div><div class="card-footer d-flex justify-content-between align-items-center"><span class="small text-secondary">Esta acción cerrará la carga de nuevas facturas.</span><button class="btn btn-warning"><i class="ti ti-cloud-upload me-1"></i>Registrar evento y finalizar</button></div></form></div>
+        @endif @endcan
+        <div class="card"><div class="card-header"><div><h3 class="card-title">Facturas del CAFC</h3><div class="small text-secondary">Historial de números utilizados y su regularización</div></div></div><div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th>Número</th><th>Fecha original</th><th>Evento</th><th>Cliente</th><th>Estado</th><th></th></tr></thead><tbody>
+        @forelse($range->manualInvoices->sortByDesc('issued_manually_at') as $manual)<tr><td class="fw-bold">{{ $manual->manual_invoice_number }}</td><td>{{ $manual->issued_manually_at->format('d/m/Y H:i:s') }}</td><td>{{ $manual->significantEvent?->event_code }} · {{ $manual->significantEvent?->event_description }}</td><td>{{ $manual->customer?->name ?? 'Pendiente' }}</td><td><span class="badge bg-blue-lt">{{ $manual->manual_status->label() }}</span></td><td class="text-end">@if($manual->manual_status === \App\Enums\ManualContingencyInvoiceStatus::PendingTranscription)<a class="btn btn-primary btn-sm" href="{{ route('billing.manual-cafc.transcribe.edit', $manual) }}">Transcribir</a>@endif</td></tr>
+        @empty <x-ui.empty-row colspan="6" message="Todavía no se registraron facturas en este CAFC." /> @endforelse
+    </tbody></table></div></div></div>
+</div>
+@endsection
+
+@push('styles')<style>.c2-identity{border-top:4px solid #f59f00}.c2-identity .display-6{color:#183b56}</style>@endpush
+@push('scripts')<script>document.addEventListener('DOMContentLoaded',()=>{const event=document.querySelector('[data-c2-event]');const description=document.querySelector('[data-c2-event-description]');const sync=()=>{if(description)description.value=event?.selectedOptions[0]?.dataset.description||''};event?.addEventListener('change',sync);sync()});</script>@endpush
