@@ -27,6 +27,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -462,7 +463,7 @@ class InvoiceIssueTest extends TestCase
             ->assertSee('data-cuis-valid="1"', false)
             ->assertSee('data-cufd-valid="1"', false)
             ->assertSee('data-cufd-request-url=', false)
-            ->assertSee('data-refresh-cufd-on-selection="1"', false)
+            ->assertDontSee('data-refresh-cufd-on-selection', false)
             ->assertDontSee('Solicitar CUFD');
     }
 
@@ -488,10 +489,88 @@ class InvoiceIssueTest extends TestCase
         $this->actingAs($user)
             ->get(route('billing.invoices.issue.show', 1))
             ->assertOk()
-            ->assertSee('data-refresh-cufd-on-selection="0"', false);
+            ->assertDontSee('data-refresh-cufd-on-selection', false);
     }
 
-    public function test_invoice_cufd_request_uses_codes_wsdl_and_stores_successful_result(): void
+    #[DataProvider('currentCufdScenarios')]
+    public function test_invoice_cufd_request_reuses_current_cufd_without_requesting_another(
+        SiatEnvironment $environment,
+        bool $communicationOk,
+    ): void {
+        $user = $this->companyUser(['invoices.issue']);
+        [$apiToken, $authorization, $pointOfSale] = $this->siatConfiguration($user);
+        $authorization->update(['environment_code' => $environment]);
+        $cuis = SinCuis::factory()->create([
+            'company_id' => $user->company_id,
+            'sin_api_token_id' => $apiToken->id,
+            'sin_authorization_id' => $authorization->id,
+            'sin_branch_id' => $pointOfSale->sin_branch_id,
+            'sin_point_of_sale_id' => $pointOfSale->id,
+            'environment_code' => $environment,
+            'transaccion' => true,
+            'cuis_code' => 'CUIS-CURRENT-123',
+        ]);
+        $currentCufd = SinCufd::factory()->create([
+            'company_id' => $user->company_id,
+            'sin_cuis_id' => $cuis->id,
+            'sin_branch_id' => $pointOfSale->sin_branch_id,
+            'sin_point_of_sale_id' => $pointOfSale->id,
+            'environment_code' => $environment,
+            'transaccion' => true,
+            'cufd_code' => 'CUFD-VIGENTE-123',
+            'control_code' => 'CTRL-VIGENTE',
+            'expires_at' => now()->addHours(12),
+            'requested_at' => now()->subHour(),
+        ]);
+        $this->mock(SiatSoapClientFactory::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('make');
+        });
+        $this->mock(SiatCommunicationService::class, function (MockInterface $mock) use ($apiToken, $pointOfSale, $user, $communicationOk): void {
+            $mock->shouldReceive('verify')
+                ->once()
+                ->withArgs(fn (SinApiToken $token, SinPointOfSale $point, User $actor): bool => $token->is($apiToken)
+                    && $point->is($pointOfSale)
+                    && $actor->is($user))
+                ->andReturn(new SiatCommunicationResult(
+                    ok: $communicationOk,
+                    message: $communicationOk ? 'SIAT respondio correctamente.' : 'No existe comunicación con el SIN.',
+                    operation: 'verificarComunicacion',
+                    wsdlUrl: $apiToken->wsdl_url,
+                    durationMs: 90,
+                    checkedAt: now()->format('d/m/Y H:i:s'),
+                ));
+        });
+
+        $this->actingAs($user)
+            ->postJson(route('billing.invoices.issue.cufd.request'), [
+                'sin_point_of_sale_id' => $pointOfSale->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'CUFD vigente reutilizado.')
+            ->assertJsonPath('communication_ok', $communicationOk)
+            ->assertJsonPath('contingency_suggested', false)
+            ->assertJsonPath('data.cufd.id', $currentCufd->id)
+            ->assertJsonPath('data.cufd.status', 'Vigente')
+            ->assertJsonPath('data.cufd.is_current', true)
+            ->assertJsonPath('data.cufd.control_code', 'CTRL-VIGENTE');
+
+        $this->assertDatabaseCount('sin_cufds', 1);
+        $this->assertNull($currentCufd->refresh()->invalidated_at);
+    }
+
+    public static function currentCufdScenarios(): array
+    {
+        return [
+            'pruebas con comunicación' => [SiatEnvironment::TestingAndPilot, true],
+            'pruebas sin comunicación' => [SiatEnvironment::TestingAndPilot, false],
+            'producción con comunicación' => [SiatEnvironment::Production, true],
+            'producción sin comunicación' => [SiatEnvironment::Production, false],
+        ];
+    }
+
+    #[DataProvider('unusableCufdStates')]
+    public function test_invoice_cufd_request_uses_codes_wsdl_and_stores_successful_result(bool $expired): void
     {
         $user = $this->companyUser(['invoices.issue']);
         [, , $pointOfSale] = $this->siatConfiguration($user);
@@ -510,7 +589,8 @@ class InvoiceIssueTest extends TestCase
             'sin_point_of_sale_id' => $pointOfSale->id,
             'transaccion' => true,
             'cufd_code' => 'CUFD-ANTERIOR',
-            'expires_at' => now()->addDay(),
+            'expires_at' => $expired ? now()->subMinute() : now()->addDay(),
+            'invalidated_at' => $expired ? null : now()->subMinute(),
         ]);
 
         $factory = new class extends SiatSoapClientFactory
@@ -568,7 +648,15 @@ class InvoiceIssueTest extends TestCase
         ]);
     }
 
-    public function test_cufd_wsdl_network_failure_suggests_offline_issuance_and_reuses_current_cufd(): void
+    public static function unusableCufdStates(): array
+    {
+        return [
+            'vencido' => [true],
+            'invalidado' => [false],
+        ];
+    }
+
+    public function test_cufd_wsdl_network_failure_suggests_offline_issuance_without_reusing_expired_cufd(): void
     {
         $user = $this->companyUser(['invoices.issue']);
         [, , $pointOfSale] = $this->siatConfiguration($user);
@@ -581,7 +669,7 @@ class InvoiceIssueTest extends TestCase
             'transaccion' => true,
             'cuis_code' => 'CUIS-OFFLINE-123',
         ]);
-        $currentCufd = SinCufd::factory()->create([
+        SinCufd::factory()->create([
             'company_id' => $user->company_id,
             'sin_branch_id' => $pointOfSale->sin_branch_id,
             'sin_point_of_sale_id' => $pointOfSale->id,
@@ -589,9 +677,9 @@ class InvoiceIssueTest extends TestCase
             'branch_code' => $pointOfSale->branch->branch_code,
             'point_of_sale_code' => $pointOfSale->point_of_sale_code,
             'transaccion' => true,
-            'cufd_code' => 'CUFD-VIGENTE-PARA-OFFLINE',
-            'expires_at' => now()->addDay(),
-            'requested_at' => now()->subMinute(),
+            'cufd_code' => 'CUFD-VENCIDO',
+            'expires_at' => now()->subMinute(),
+            'requested_at' => now()->subDay(),
         ]);
         $factory = new class extends SiatSoapClientFactory
         {
@@ -613,8 +701,8 @@ class InvoiceIssueTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('communication_ok', false)
             ->assertJsonPath('contingency_suggested', true)
-            ->assertJsonPath('data.cufd.id', $currentCufd->id)
-            ->assertJsonPath('data.cufd.is_current', true)
+            ->assertJsonPath('data.cufd.id', null)
+            ->assertJsonPath('data.cufd.is_current', false)
             ->assertJsonPath('message', 'No existe comunicación con el SIN. Puede continuar con la emisión fuera de línea; la factura quedará pendiente de regularización.');
     }
 

@@ -47,11 +47,11 @@ trait ValidatesSiatIdentityDocumentType
 
             if (
                 SiatIdentityDocumentTypes::requiresNitDigits($code)
-                && ! preg_match('/^\d{7,13}$/', $documentNumber)
+                && ! preg_match('/\A[0-9]+\z/', $documentNumber)
             ) {
                 $validator->errors()->add(
                     'document_number',
-                    'Para NIT, el numero de documento debe tener entre 7 y 13 digitos.'
+                    'Para NIT, el numero de documento debe contener solo digitos.'
                 );
             }
         });

@@ -18,8 +18,8 @@ use App\Enums\SiatMessageSeverity;
 use App\Enums\SiatModality;
 use App\Enums\SiatOperation;
 use App\Enums\SignificantEventStatus;
-use App\Jobs\SynchronizeOfflineInvoiceJob;
 use App\Jobs\SendInvoiceCustomerNotificationJob;
+use App\Jobs\SynchronizeOfflineInvoiceJob;
 use App\Models\Sale;
 use App\Models\SinApiToken;
 use App\Models\SinAuthorization;
@@ -464,10 +464,11 @@ class InvoiceIssuanceService
             ->where('company_id', $sale->company_id)
             ->where('sin_point_of_sale_id', $sale->sin_point_of_sale_id)
             ->where('emission_mode', InvoiceEmissionMode::OfflineDigital)
-            ->whereNotIn('fiscal_status', [
-                InvoiceFiscalStatus::ValidatedAfterContingency,
-                InvoiceFiscalStatus::Observed,
-                InvoiceFiscalStatus::Rejected,
+            ->whereIn('fiscal_status', [
+                InvoiceFiscalStatus::OfflineIssued,
+                InvoiceFiscalStatus::PendingPackage,
+                InvoiceFiscalStatus::Packaged,
+                InvoiceFiscalStatus::PackageSent,
             ])
             ->where(function ($query): void {
                 $query->whereNull('sin_significant_event_id')

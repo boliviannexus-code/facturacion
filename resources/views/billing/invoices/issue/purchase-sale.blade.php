@@ -35,7 +35,6 @@
                 data-invoice-fiscal-status
                 data-communication-ok="{{ $communicationStatus['ok'] ? '1' : '0' }}"
                 data-cufd-request-url="{{ route('billing.invoices.issue.cufd.request') }}"
-                data-refresh-cufd-on-selection="{{ $refreshCufdOnPointOfSaleSelection ? '1' : '0' }}"
             >
                 <span class="invoice-status-pill {{ $communicationStatus['ok'] ? 'is-ok' : 'is-bad' }}">
                     <span>

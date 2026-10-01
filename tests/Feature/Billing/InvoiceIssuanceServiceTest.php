@@ -10,8 +10,8 @@ use App\Enums\InvoiceIssuanceDecision;
 use App\Enums\SiatAttemptStatus;
 use App\Enums\SiatErrorType;
 use App\Enums\SignificantEventStatus;
-use App\Jobs\SynchronizeOfflineInvoiceJob;
 use App\Jobs\SendInvoiceCustomerNotificationJob;
+use App\Jobs\SynchronizeOfflineInvoiceJob;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Product;
@@ -338,6 +338,40 @@ final class InvoiceIssuanceServiceTest extends TestCase
         self::assertSame($offline?->sin_cufd_id, $continued->invoice?->sin_cufd_id);
         self::assertSame(0, $client->calls);
         self::assertSame(InvoiceFiscalStatus::OfflineIssued, $offline?->refresh()->fiscal_status);
+    }
+
+    public function test_reversed_offline_invoice_without_event_does_not_force_new_invoices_offline(): void
+    {
+        $context = $this->context();
+        $this->simulate(false, [], contingency: true, errorType: SiatErrorType::SiatUnavailable);
+        $offline = app(InvoiceIssuanceService::class)->issue($context['sale'])->invoice;
+        $offline->forceFill([
+            'fiscal_status' => InvoiceFiscalStatus::ReversedInSiat,
+            'sin_significant_event_id' => null,
+        ])->save();
+
+        $nextSale = Sale::factory()->create([
+            'company_id' => $context['company']->id,
+            'user_id' => $context['user']->id,
+            'customer_id' => $context['customer']->id,
+            'sin_point_of_sale_id' => $context['point']->id,
+            'subtotal_amount' => 100,
+            'discount_amount' => 0,
+            'total_amount' => 100,
+            'issued_at' => now()->startOfSecond(),
+        ]);
+        $nextSale->items()->create($context['sale']->items()->firstOrFail()->only([
+            'company_id', 'product_id', 'position', 'internal_code', 'description',
+            'economic_activity_code', 'siat_product_code', 'measurement_unit_code',
+            'quantity', 'unit_price', 'discount_amount', 'subtotal_amount',
+        ]));
+        $this->simulate(true, [$this->response(908, true, 'ONLINE-AFTER-MANUAL-REVIEW')]);
+
+        $result = app(InvoiceIssuanceService::class)->issue($nextSale);
+
+        self::assertSame(InvoiceIssuanceDecision::Online, $result->decision);
+        self::assertSame(InvoiceFiscalStatus::Validated, $result->invoice?->fiscal_status);
+        self::assertSame(InvoiceFiscalStatus::ReversedInSiat, $offline?->refresh()->fiscal_status);
     }
 
     public function test_failed_event_requiring_manual_review_does_not_block_new_online_invoices(): void

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Web\Billing;
 
 use App\Enums\InvoiceFiscalStatus;
-use App\Enums\SiatEnvironment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Billing\IssuePurchaseSaleInvoiceRequest;
 use App\Models\Customer;
@@ -106,7 +105,6 @@ class InvoiceIssueController extends Controller
             'sector' => $sector,
             'company' => $company,
             'authorization' => $authorization,
-            'refreshCufdOnPointOfSaleSelection' => $authorization?->environment_code === SiatEnvironment::TestingAndPilot,
             'branches' => $branches,
             'communicationStatus' => $communicationStatus,
             'fiscalStatuses' => $fiscalStatuses,
@@ -157,7 +155,8 @@ class InvoiceIssueController extends Controller
             ->with('branch')
             ->findOrFail((int) $validated['sin_point_of_sale_id']);
 
-        $cufd = $this->cufds->request($request->user(), $pointOfSale);
+        $currentCufd = $this->cufds->currentForPointOfSale($pointOfSale);
+        $cufd = $currentCufd ?? $this->cufds->request($request->user(), $pointOfSale);
         $errorType = $cufd->transaccion
             ? null
             : $this->errorClassifier->classify(new RuntimeException((string) $cufd->message));
@@ -167,12 +166,19 @@ class InvoiceIssueController extends Controller
             : $this->cufds->currentForPointOfSale($pointOfSale);
         $message = $communicationUnavailable
             ? 'No existe comunicación con el SIN. Puede continuar con la emisión fuera de línea; la factura quedará pendiente de regularización.'
-            : $cufd->message;
+            : ($currentCufd ? 'CUFD vigente reutilizado.' : $cufd->message);
+        $communicationOk = ! $communicationUnavailable;
+
+        if ($currentCufd) {
+            $apiToken = SinApiToken::query()->first();
+            $communicationOk = $apiToken !== null
+                && $this->communication->verify($apiToken, $pointOfSale, $request->user())->ok;
+        }
 
         return response()->json([
             'success' => $cufd->transaccion,
             'message' => $message,
-            'communication_ok' => ! $communicationUnavailable,
+            'communication_ok' => $communicationOk,
             'contingency_suggested' => $communicationUnavailable,
             'technical_message' => $cufd->message,
             'data' => [
@@ -184,7 +190,7 @@ class InvoiceIssueController extends Controller
                     'control_code' => $usableCufd?->control_code,
                 ],
             ],
-        ], $cufd->transaccion ? 201 : ($communicationUnavailable ? 200 : 422));
+        ], $currentCufd ? 200 : ($cufd->transaccion ? 201 : ($communicationUnavailable ? 200 : 422)));
     }
 
     public function issuePurchaseSale(IssuePurchaseSaleInvoiceRequest $request): JsonResponse

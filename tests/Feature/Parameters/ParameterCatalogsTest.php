@@ -225,12 +225,11 @@ class ParameterCatalogsTest extends TestCase
             ->assertSessionHasErrors('identity_document_type_code');
     }
 
-    public function test_customer_validates_identity_card_and_nit_digit_lengths(): void
+    public function test_customer_validates_identity_card_digits_and_length(): void
     {
         $user = $this->companyUser([
             'customers.create',
         ]);
-        $this->seedSiatIdentityDocumentType($user->company_id, '5', 'NIT');
 
         $this
             ->actingAs($user)
@@ -253,31 +252,80 @@ class ParameterCatalogsTest extends TestCase
             ])
             ->assertRedirect(route('parameters.customers.create'))
             ->assertSessionHasErrors('document_number');
+    }
+
+    public function test_customer_accepts_short_and_long_nit_numbers(): void
+    {
+        $user = $this->companyUser([
+            'customers.create',
+        ]);
+        $this->seedSiatIdentityDocumentType($user->company_id, '5', 'NIT');
+
+        foreach (['1', '12345678901234'] as $documentNumber) {
+            $this
+                ->actingAs($user)
+                ->post(route('parameters.customers.store'), [
+                    'identity_document_type_code' => 5,
+                    'document_number' => $documentNumber,
+                    'name' => 'Cliente con NIT',
+                ])
+                ->assertRedirect(route('parameters.customers.index'))
+                ->assertSessionHasNoErrors();
+
+            $this->assertDatabaseHas('customers', [
+                'company_id' => $user->company_id,
+                'identity_document_type_code' => 5,
+                'document_number' => $documentNumber,
+            ]);
+        }
+    }
+
+    public function test_customer_rejects_nit_with_letters(): void
+    {
+        $user = $this->companyUser([
+            'customers.create',
+        ]);
+        $this->seedSiatIdentityDocumentType($user->company_id, '5', 'NIT');
 
         $this
             ->actingAs($user)
             ->from(route('parameters.customers.create'))
             ->post(route('parameters.customers.store'), [
                 'identity_document_type_code' => 5,
-                'document_number' => '123456',
-                'name' => 'NIT muy corto',
+                'document_number' => '123456A',
+                'name' => 'NIT con letras',
             ])
             ->assertRedirect(route('parameters.customers.create'))
             ->assertSessionHasErrors('document_number');
+    }
 
-        $this
-            ->actingAs($user)
-            ->post(route('parameters.customers.store'), [
-                'identity_document_type_code' => 5,
-                'document_number' => '1234567890',
-                'name' => 'NIT valido',
-            ])
-            ->assertRedirect(route('parameters.customers.index'));
-
-        $this->assertDatabaseHas('customers', [
+    public function test_customer_can_update_nit_with_more_than_thirteen_digits(): void
+    {
+        $user = $this->companyUser([
+            'customers.edit',
+        ]);
+        $this->seedSiatIdentityDocumentType($user->company_id, '5', 'NIT');
+        $customer = Customer::factory()->create([
             'company_id' => $user->company_id,
             'identity_document_type_code' => 5,
             'document_number' => '1234567890',
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->put(route('parameters.customers.update', $customer), [
+                'identity_document_type_code' => 5,
+                'document_number' => '12345678901234',
+                'name' => 'NIT actualizado',
+            ])
+            ->assertRedirect(route('parameters.customers.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('customers', [
+            'id' => $customer->id,
+            'company_id' => $user->company_id,
+            'identity_document_type_code' => 5,
+            'document_number' => '12345678901234',
         ]);
     }
 

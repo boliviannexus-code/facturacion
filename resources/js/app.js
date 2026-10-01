@@ -474,7 +474,6 @@ function initInvoiceIssueForms(scope = document) {
         const preserveIssuedAt = form.dataset.preserveIssuedAt === '1';
         let communicationOk = fiscalStatus?.dataset.communicationOk === '1';
         const cufdRequestUrl = fiscalStatus?.dataset.cufdRequestUrl;
-        const refreshCufdOnSelection = fiscalStatus?.dataset.refreshCufdOnSelection === '1';
         const cuisStatus = form.querySelector('[data-cuis-status]');
         const cufdStatus = form.querySelector('[data-cufd-status]');
         const submitButton = form.querySelector('[data-invoice-submit]');
@@ -680,6 +679,9 @@ function initInvoiceIssueForms(scope = document) {
                     return;
                 }
 
+                communicationOk = payload.communication_ok === true;
+                if (fiscalStatus) fiscalStatus.dataset.communicationOk = communicationOk ? '1' : '0';
+
                 option.dataset.cufdValid = payload.data?.cufd?.is_current ? '1' : '0';
                 option.dataset.cufdLabel = 'CUFD';
                 option.dataset.cufdDetail = option.dataset.cufdValid === '1' ? '' : 'CUFD no vigente';
@@ -736,10 +738,9 @@ function initInvoiceIssueForms(scope = document) {
         const handlePointOfSaleSelection = () => {
             const option = selectedOption(pointOfSaleSelect);
 
-            if (communicationOk && refreshCufdOnSelection && option?.value && !String(option.value).startsWith('branch-')) {
+            if (!manualCafc && !communicationOk && option?.value && !String(option.value).startsWith('branch-')) {
                 option.dataset.cufdAttempted = '0';
-                option.dataset.cufdValid = '0';
-                option.dataset.cufdDetail = 'CUFD pendiente de renovacion';
+                requestCufd(option);
             }
 
             updateFiscalReadiness();
