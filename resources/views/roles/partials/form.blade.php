@@ -5,8 +5,9 @@
         <div class="invalid-feedback" data-error-for="name">{{ ($errors ?? null)?->first('name') }}</div>
     </div>
     <div class="col-md-4">
-        <label class="form-label" for="role-guard-name">Guard</label>
+        <label class="form-label" for="role-guard-name">Contexto de autenticación</label>
         <input class="form-control {{ ($errors ?? null)?->has('guard_name') ? 'is-invalid' : '' }}" id="role-guard-name" name="guard_name" value="{{ old('guard_name', $role->guard_name ?? 'web') }}">
+        <div class="form-text">Identificador técnico usado para autenticar el acceso.</div>
         <div class="invalid-feedback" data-error-for="guard_name">{{ ($errors ?? null)?->first('guard_name') }}</div>
     </div>
     <div class="col-12">

@@ -50,6 +50,7 @@ class UserService
         unset($data['roles'], $data['password']);
 
         $data = $this->applyCompanyAssignmentRules($data);
+        $this->ensureCompanyCanChange($user, $data);
         $data['is_active'] = array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $user->is_active;
         $isBeingDeactivated = $user->is_active && ! $data['is_active'];
 
@@ -122,6 +123,8 @@ class UserService
 
     public function delete(User $user, ?User $actor = null): bool
     {
+        $this->ensureHasNoActiveCashRegister($user);
+
         if ($actor && $actor->is($user) && $user->hasAnyRole(['admin', 'super_admin']) && $this->users->activeAdminsCount() <= 1) {
             throw ValidationException::withMessages([
                 'user' => 'No puedes eliminarte si eres el unico admin activo.',
@@ -152,6 +155,8 @@ class UserService
 
     private function ensureCanDeactivate(User $user): void
     {
+        $this->ensureHasNoActiveCashRegister($user);
+
         if ($user->hasAnyRole(['admin', 'super_admin']) && $this->users->activeAdminsExcluding($user) === 0) {
             throw ValidationException::withMessages([
                 'user' => 'No puedes desactivar al ultimo admin activo.',
@@ -169,6 +174,41 @@ class UserService
         $user->forceFill(['remember_token' => null])->saveQuietly();
 
         Log::warning('User access revoked', ['user_id' => $user->id]);
+    }
+
+    private function ensureCompanyCanChange(User $user, array $data): void
+    {
+        if (! array_key_exists('company_id', $data)) {
+            return;
+        }
+
+        $newCompanyId = $data['company_id'] !== null ? (int) $data['company_id'] : null;
+        $currentCompanyId = $user->company_id !== null ? (int) $user->company_id : null;
+
+        if ($newCompanyId === $currentCompanyId) {
+            return;
+        }
+
+        if ($user->cashRegisters()->exists()) {
+            throw ValidationException::withMessages([
+                'company_id' => 'No puedes cambiar la empresa de un usuario que tiene historial de cajas.',
+            ]);
+        }
+
+        if ($user->sales()->exists()) {
+            throw ValidationException::withMessages([
+                'company_id' => 'No puedes cambiar ni quitar la empresa de un usuario que tiene ventas registradas.',
+            ]);
+        }
+    }
+
+    private function ensureHasNoActiveCashRegister(User $user): void
+    {
+        if ($user->activeCashRegister()->exists()) {
+            throw ValidationException::withMessages([
+                'user' => 'El usuario debe cerrar su caja activa antes de ser desactivado o eliminado.',
+            ]);
+        }
     }
 
     private function applyCompanyAssignmentRules(array $data): array

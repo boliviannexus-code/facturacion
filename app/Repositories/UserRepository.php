@@ -2,8 +2,8 @@
 
 namespace App\Repositories;
 
-use App\Models\User;
 use App\Models\Company;
+use App\Models\User;
 use App\Support\CompanyContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
