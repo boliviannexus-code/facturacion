@@ -26,7 +26,7 @@ final class UpdateCafcCodeRequest extends FormRequest
                 'required',
                 'string',
                 'max:128',
-                Rule::unique('sin_cafc_ranges', 'cafc_code')
+                Rule::unique('sin_cafc_ranges', 'cafc_code')->withoutTrashed()
                     ->ignore($range?->id)
                     ->where(fn ($query) => $query
                         ->where('company_id', $range?->company_id)

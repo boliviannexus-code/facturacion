@@ -19,7 +19,7 @@ final class StoreCafcContingencyRangeRequest extends StoreCafcRangeRequest
                 'required',
                 'string',
                 'max:128',
-                Rule::unique('sin_cafc_ranges', 'cafc_code')->where(fn ($query) => $query
+                Rule::unique('sin_cafc_ranges', 'cafc_code')->withoutTrashed()->where(fn ($query) => $query
                     ->where('company_id', $companyId)
                     ->where('document_sector_code', $this->input('document_sector_code'))
                     ->where('sin_branch_id', $this->input('sin_branch_id'))

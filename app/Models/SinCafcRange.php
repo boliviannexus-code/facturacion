@@ -12,12 +12,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
 class SinCafcRange extends Model implements Auditable
 {
     /** @use HasFactory<SinCafcRangeFactory> */
-    use AuditsCompanyChanges, BelongsToCompany, HasFactory;
+    use AuditsCompanyChanges, BelongsToCompany, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'company_id', 'sin_branch_id', 'sin_point_of_sale_id', 'sin_significant_event_id', 'created_by_user_id',

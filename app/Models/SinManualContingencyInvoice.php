@@ -43,6 +43,7 @@ class SinManualContingencyInvoice extends Model implements Auditable
             'transcribed_at' => 'immutable_datetime',
             'voided_at' => 'immutable_datetime',
             'is_test_copy' => 'boolean',
+            'retired_for_tests' => 'boolean',
         ];
     }
 
@@ -58,7 +59,7 @@ class SinManualContingencyInvoice extends Model implements Auditable
 
     public function cafcRange(): BelongsTo
     {
-        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id');
+        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id')->withTrashed();
     }
 
     public function significantEvent(): BelongsTo

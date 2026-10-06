@@ -31,6 +31,7 @@ use App\Services\Billing\Packages\PackageInvoiceValidationResult;
 use App\Services\Billing\Packages\PackageProcessResult;
 use App\Services\Billing\Packages\PackageTransportException;
 use App\Services\Billing\Packages\PackageValidationResult;
+use App\Services\Siat\SiatCufGenerator;
 use App\Services\Siat\SiatLogSanitizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -117,6 +118,11 @@ final class InvoicePackageService
             );
         }
 
+        if ($package->emission_mode === InvoiceEmissionMode::ManualCafc) {
+            foreach ($package->items()->with('invoice')->get() as $item) {
+                $this->validateManualInvoice($package->significantEvent, $item->invoice);
+            }
+        }
         $this->verifyStoredArtifact($package);
         $claim = (string) Str::uuid();
         $attempt = $this->claim($package, $actor, SiatOperation::ReceivePackage, $claim);
@@ -819,12 +825,56 @@ final class InvoicePackageService
         }
     }
 
+    public function validateManualInvoice(SinSignificantEvent $event, SinInvoiceIssue $invoice): void
+    {
+        $manual = $invoice->manualContingency;
+        if (! $manual || (int) $manual->sin_significant_event_id !== (int) $event->id) {
+            throw ValidationException::withMessages(['event' => 'La factura manual no está asociada al evento del paquete.']);
+        }
+        if ($manual->cafcRange->range_status !== CafcRangeStatus::Blocked && $manual->cafcRange->range_status !== CafcRangeStatus::Sent) {
+            throw ValidationException::withMessages(['cafc_range_id' => 'Finalice todas las transcripciones del CAFC antes de generar o enviar paquetes.']);
+        }
+        app(ManualCafcCompliance::class)->validate($manual->cafcRange, $event, $invoice->issued_at, true);
+        if ((int) $invoice->sin_cufd_id !== (int) $event->sin_cufd_id
+            || $invoice->cufd_code !== $event->cufd->cufd_code
+            || $invoice->control_code !== $event->cufd->control_code) {
+            throw ValidationException::withMessages(['cuf' => 'El CUFD y código de control del XML manual deben corresponder al evento, no al CUFD de recuperación.']);
+        }
+        $expectedCuf = app(SiatCufGenerator::class)->generate(
+            (string) $invoice->tax_id, $invoice->issued_at, (int) $invoice->branch_code,
+            $invoice->modality_code->value, 2, (int) $invoice->invoice_document_type_code,
+            (int) $invoice->document_sector_code, (int) $manual->manual_invoice_number,
+            (int) $invoice->point_of_sale_code, (string) $event->cufd->control_code,
+        );
+        if ($invoice->cuf !== $expectedCuf || $invoice->issued_at->ne($manual->issued_manually_at)) {
+            throw ValidationException::withMessages(['cuf' => 'El CUF manual no coincide con los datos originales y el código de control del evento.']);
+        }
+
+        $xml = $this->originalXml($invoice);
+        if (blank($manual->xml_hash) || ! hash_equals($manual->xml_hash, hash('sha256', $xml))) {
+            throw ValidationException::withMessages(['xml' => 'El XML manual no coincide con el documento fiscal original guardado.']);
+        }
+        $document = new \DOMDocument;
+        if (! @$document->loadXML($xml, LIBXML_NONET)) {
+            throw ValidationException::withMessages(['xml' => 'El XML manual no es válido.']);
+        }
+        $xpath = new \DOMXPath($document);
+        if ($xpath->evaluate('string(//cuf)') !== $invoice->cuf
+            || $xpath->evaluate('string(//cufd)') !== $event->cufd->cufd_code) {
+            throw ValidationException::withMessages(['cuf' => 'El CUF y CUFD escritos en el XML deben coincidir con la identidad fiscal original del evento.']);
+        }
+
+    }
+
     private function assertSameScope(
         SinSignificantEvent $event,
         EloquentCollection $invoices,
         SinInvoiceIssue $first,
     ): void {
         foreach ($invoices as $invoice) {
+            if ($invoice->emission_mode === InvoiceEmissionMode::ManualCafc) {
+                $this->validateManualInvoice($event, $invoice);
+            }
             $belongsToEvent = (int) $invoice->sin_significant_event_id === (int) $event->id
                 || ((int) $event->sin_invoice_issue_id > 0 && (int) $invoice->id === (int) $event->sin_invoice_issue_id);
             $sameScope = (int) $invoice->company_id === (int) $event->company_id

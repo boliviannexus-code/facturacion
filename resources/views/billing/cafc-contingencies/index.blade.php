@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-3">
-    <div><span class="badge bg-orange-lt mb-2">Circuito CAFC</span><h2 class="h3 mb-1">Autorizaciones disponibles</h2><p class="text-secondary mb-0">Ingresa a un CAFC para registrar el evento y transcribir sus facturas.</p></div>
+    <div><span class="badge bg-orange-lt mb-2">Circuito CAFC</span><h2 class="h3 mb-1">Autorizaciones disponibles</h2><p class="text-secondary mb-0">Registra el evento ante el SIN, transcribe todas las facturas y luego finaliza el envío.</p></div>
     @can('cafc-ranges.manage')<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newCafcModal"><i class="ti ti-plus me-1"></i>Nuevo CAFC</button>@endcan
 </div>
 
@@ -17,13 +17,23 @@
             <tbody>
             @forelse($ranges as $range)
                 <tr>
-                    <td><a class="fw-semibold" href="{{ route('billing.cafc-contingencies.show', $range) }}">{{ $range->cafc_code }}</a><div class="small text-secondary">{{ $range->authorized_from->format('d/m/Y') }} – {{ $range->authorized_until->format('d/m/Y') }}</div>@if($range->significantEvent)<div class="small text-success">Evento {{ $range->significantEvent->event_code }} · recepción {{ $range->significantEvent->reception_code ?? 'registrada' }}</div>@else<div class="small text-warning">Transcripción abierta · evento pendiente</div>@endif</td>
+                    <td><a class="fw-semibold" href="{{ route('billing.cafc-contingencies.show', $range) }}">{{ $range->cafc_code }}</a><div class="small text-secondary">{{ $range->authorized_from->format('d/m/Y') }} – {{ $range->authorized_until->format('d/m/Y') }}</div>@if($range->significantEvent)<div class="small text-success">Evento {{ $range->significantEvent->event_code }} · recepción {{ $range->significantEvent->reception_code ?? 'registrada' }}</div>@else<div class="small text-warning">Paso 1 · registrar evento</div>@endif</td>
                     <td>{{ \App\Services\Billing\InvoiceDocumentSector::supports((int) $range->document_sector_code) ? \App\Services\Billing\InvoiceDocumentSector::title((int) $range->document_sector_code) : 'Sector documental '.$range->document_sector_code }}<div class="small text-secondary">Sector {{ $range->document_sector_code }}</div></td>
                     <td>{{ $range->branch->display_name }}<div class="small text-secondary">{{ $range->pointOfSale?->display_name ?? 'Toda la sucursal' }}</div></td>
                     <td>{{ number_format($range->range_start) }} – {{ number_format($range->range_end) }}<div class="small text-secondary">Siguiente {{ number_format($range->next_number) }}</div></td>
                     <td><strong>{{ $range->remaining_count }}</strong></td>
                     <td><span class="badge {{ $range->range_status->canConsume() ? 'bg-success-lt' : 'bg-secondary-lt' }}">{{ $range->range_status->label() }}</span></td>
-                    <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ route('billing.cafc-contingencies.show', $range) }}">Abrir <i class="ti ti-chevron-right ms-1"></i></a></td>
+                    <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ route('billing.cafc-contingencies.show', $range) }}">Abrir <i class="ti ti-chevron-right ms-1"></i></a>
+                        @can('cafc-ranges.manage')
+                            @if($canRestartTests)
+                                <form method="POST" action="{{ route('billing.cafc-ranges.destroy', $range) }}" class="d-inline" data-confirm-action data-confirm-title="¿Eliminar este CAFC de pruebas?" data-confirm-text="Podrá registrar nuevamente el mismo código y numeración. El historial anterior se conserva y esta acción no elimina registros en el SIN." data-confirm-button="Sí, eliminar de pruebas">
+                                    @csrf @method('DELETE')
+                                    <input type="hidden" name="restart_tests" value="1">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit"><i class="ti ti-trash me-1"></i>Eliminar de pruebas</button>
+                                </form>
+                            @endif
+                        @endcan
+                    </td>
                 </tr>
             @empty
                 <x-ui.empty-row colspan="7" message="No existen autorizaciones CAFC." />

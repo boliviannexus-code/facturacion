@@ -9,6 +9,16 @@ use PHPUnit\Framework\TestCase;
 
 class SiatInvoiceArtifactsTest extends TestCase
 {
+    public function test_manual_contingency_cuf_matches_reported_siat_expected_value(): void
+    {
+        $cuf = (new SiatCufGenerator)->generate(
+            '8324984019', Carbon::parse('2026-10-02 10:00:27.000'),
+            0, 2, 2, 1, 1, 4, 0, '4BD688A4F54BF74',
+        );
+
+        $this->assertSame('2399E576DE29F5B4EB9C23E1BC68A151DB8DCEE9A884BD688A4F54BF74', $cuf);
+    }
+
     public function test_cuf_generation_is_deterministic_and_appends_control_code(): void
     {
         $generator = new SiatCufGenerator;

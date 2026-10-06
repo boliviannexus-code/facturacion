@@ -44,9 +44,25 @@ class PurchaseSaleInvoicePdfService
 
         $headerBottom = $this->drawHeader($pdf, $invoice, $header);
         $customerBottom = $this->drawCustomer($pdf, $invoice, $header, $headerBottom);
-        $this->drawDetails($pdf, $details, $customerBottom);
-        $this->drawTotals($pdf, $invoice, $header);
-        $this->drawFooter($pdf, $invoice, $header);
+        $tableY = max(68, $customerBottom + 1);
+        $pages = $this->paginateDetails($pdf, $details, 106 - $tableY - 14);
+        $pageCount = count($pages);
+
+        foreach ($pages as $index => $rows) {
+            if ($index > 0) {
+                $pdf->AddPage();
+                $this->drawPilotWatermark($pdf, $invoice);
+                $headerBottom = $this->drawHeader($pdf, $invoice, $header);
+                $customerBottom = $this->drawCustomer($pdf, $invoice, $header, $headerBottom);
+            }
+
+            $this->drawDetails($pdf, $rows, $customerBottom);
+            if ($index === $pageCount - 1) {
+                $this->drawTotals($pdf, $invoice, $header);
+            }
+            $this->drawFooter($pdf, $invoice, $header);
+            $this->text($pdf, 8, 2, 194, 4, ($index + 1).' de '.$pageCount, 6, '', 'C');
+        }
 
         return $pdf->Output($this->filename($invoice), 'S');
     }
@@ -257,32 +273,87 @@ class PurchaseSaleInvoicePdfService
         $pdf->Line($x, $y + 12, 202, $y + 12);
 
         $y += 14;
-        foreach ($details as $detail) {
-            if ($y > 101) {
-                break;
+        foreach ($details as $row) {
+            $cursor = $x;
+            $pdf->SetFont('helvetica', '', 6 + self::FONT_SIZE_INCREASE);
+            foreach ($row['cells'] as [$value, $width, $align]) {
+                $pdf->MultiCell($width, $row['height'], $value, 0, $align, false, 0, $cursor, $y);
+                $cursor += $width;
             }
+            $y += $row['height'];
+        }
+    }
 
-            $description = (string) data_get($detail, 'descripcion', '-');
-            $rowHeight = max(6, min(10, $pdf->getStringHeight(52, $description, false, true, '', 1)));
-            $values = [
+    /**
+     * Measure every cell at the rendering font size. Long cells continue on the
+     * next sheet rather than being clipped; numeric cells appear only once.
+     */
+    private function paginateDetails(TCPDF $pdf, array $details, float $capacity): array
+    {
+        if ($capacity < 6) {
+            throw new \RuntimeException('El encabezado no deja espacio para el detalle de la factura.');
+        }
+
+        $pdf->SetFont('helvetica', '', 6 + self::FONT_SIZE_INCREASE);
+        $pages = [];
+        $rows = [];
+        $used = 0.0;
+        foreach ($details as $detail) {
+            $cells = [
                 [(string) data_get($detail, 'codigoProducto', '-'), 29, 'L'],
                 [$this->number(data_get($detail, 'cantidad', 0), 2), 21, 'R'],
                 [$this->unitLabel(data_get($detail, 'unidadMedida')), 23, 'L'],
-                [$description, 52, 'L'],
+                [(string) data_get($detail, 'descripcion', '-'), 52, 'L'],
                 [$this->number(data_get($detail, 'precioUnitario', 0)), 25, 'R'],
                 [$this->number(data_get($detail, 'montoDescuento', 0)), 22, 'R'],
                 [$this->number(data_get($detail, 'subTotal', 0)), 22, 'R'],
             ];
 
-            $cursor = $x;
-            $pdf->SetFont('helvetica', '', 6 + self::FONT_SIZE_INCREASE);
-            foreach ($values as [$value, $width, $align]) {
-                $pdf->MultiCell($width, $rowHeight, $value, 0, $align, false, 0, $cursor, $y);
-                $cursor += $width;
-            }
-
-            $y += $rowHeight;
+            do {
+                $fragment = [];
+                $remaining = [];
+                $height = 6.0;
+                foreach ($cells as [$value, $width, $align]) {
+                    $length = mb_strlen($value);
+                    $low = 0;
+                    $high = $length;
+                    while ($low < $high) {
+                        $middle = (int) ceil(($low + $high) / 2);
+                        if ($pdf->getStringHeight($width, mb_substr($value, 0, $middle)) <= $capacity) {
+                            $low = $middle;
+                        } else {
+                            $high = $middle - 1;
+                        }
+                    }
+                    if ($length > 0 && $low === 0) {
+                        throw new \RuntimeException('No se puede imprimir una celda del detalle en media hoja.');
+                    }
+                    if ($low < $length) {
+                        $space = mb_strrpos(mb_substr($value, 0, $low), ' ');
+                        if ($space !== false && $space > 0) {
+                            $low = $space + 1;
+                        }
+                    }
+                    $text = mb_substr($value, 0, $low);
+                    $fragment[] = [$text, $width, $align];
+                    $remaining[] = [mb_substr($value, $low), $width, $align];
+                    $height = max($height, $pdf->getStringHeight($width, $text));
+                }
+                if ($used + $height > $capacity && $rows !== []) {
+                    $pages[] = $rows;
+                    $rows = [];
+                    $used = 0.0;
+                }
+                $rows[] = ['cells' => $fragment, 'height' => $height];
+                $used += $height;
+                $cells = $remaining;
+            } while (array_filter($cells, static fn (array $cell): bool => $cell[0] !== '') !== []);
         }
+        if ($rows !== [] || $pages === []) {
+            $pages[] = $rows;
+        }
+
+        return $pages;
     }
 
     private function drawTotals(TCPDF $pdf, SinInvoiceIssue $invoice, array $header): void

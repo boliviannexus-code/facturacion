@@ -64,6 +64,6 @@ final class InvoiceTestBatchItem extends Model
 
     public function cafcRange(): BelongsTo
     {
-        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id');
+        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id')->withTrashed();
     }
 }

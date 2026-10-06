@@ -65,6 +65,13 @@ class SignificantEventService
     public function registerForPointOfSale(User $user, SinPointOfSale $pointOfSale, array $data): SinSignificantEvent
     {
         $pointOfSale->loadMissing('branch');
+        if (in_array((int) $data['event_code'], [5, 6, 7], true)) {
+            $start = Carbon::parse((string) $data['started_at']);
+            $end = Carbon::parse((string) $data['ended_at']);
+            if ($start->gte($end) || $end->isFuture() || $end->lt(now()->subHours(48))) {
+                throw ValidationException::withMessages(['ended_at' => 'Registre un período real, ya finalizado, dentro de las 48 horas posteriores al fin de la contingencia.']);
+            }
+        }
         $pendingEvent = $this->pendingOfflineEvent($pointOfSale);
 
         if ($pendingEvent) {
@@ -79,7 +86,7 @@ class SignificantEventService
         $currentCufd = $this->cufdService->currentForPointOfSale($pointOfSale);
         $eventCufd = $this->cufdForEvent($pointOfSale, (string) $data['started_at']);
 
-        if (! $apiToken || ! $authorization || ! $cuis?->cuis_code || ! $currentCufd?->cufd_code || ! $pointOfSale->branch) {
+        if (! $apiToken || ! $authorization || ! $cuis?->cuis_code || ! $pointOfSale->branch) {
             throw ValidationException::withMessages([
                 'configuration' => 'El punto de venta necesita token, autorizacion, CUIS y CUFD vigentes para registrar la contingencia.',
             ]);
@@ -89,6 +96,18 @@ class SignificantEventService
             throw ValidationException::withMessages([
                 'started_at' => 'No existe un CUFD vigente para el punto de venta al inicio del evento. Registra el período real de la contingencia.',
             ]);
+        }
+
+        if (in_array((int) $data['event_code'], [5, 6, 7], true)
+            && (! $currentCufd || $currentCufd->id === $eventCufd->id || ! $currentCufd->requested_at || $currentCufd->requested_at->lt(Carbon::parse((string) $data['ended_at'])))) {
+            $currentCufd = $this->cufdService->request($user, $pointOfSale);
+            if (! $currentCufd->transaccion || blank($currentCufd->cufd_code)) {
+                throw ValidationException::withMessages(['cufd' => 'No se pudo obtener el CUFD de recuperación para registrar el evento.']);
+            }
+        }
+
+        if (! $currentCufd?->cufd_code) {
+            throw ValidationException::withMessages(['cufd' => 'Se requiere un CUFD de recuperación vigente para registrar el evento.']);
         }
 
         return $this->submit(

@@ -9,8 +9,10 @@ use App\Enums\InvoiceCommercialStatus;
 use App\Enums\InvoiceEmissionMode;
 use App\Enums\InvoiceFiscalStatus;
 use App\Enums\ManualContingencyInvoiceStatus;
+use App\Enums\SiatEnvironment;
 use App\Enums\SiatModality;
 use App\Models\Customer;
+use App\Models\InvoiceTestBatch;
 use App\Models\Product;
 use App\Models\SinApiToken;
 use App\Models\SinAuthorization;
@@ -171,7 +173,33 @@ final class ManualCafcService
                 ]);
             }
 
-            $locked->delete();
+            $locked->forceDelete();
+        }, 3);
+    }
+
+    public function deleteTestRange(SinCafcRange $range, User $actor): void
+    {
+        DB::transaction(function () use ($range, $actor): void {
+            $locked = SinCafcRange::withoutGlobalScope('company')->lockForUpdate()->findOrFail($range->id);
+            $authorization = SinAuthorization::withoutGlobalScope('company')->where('company_id', $actor->company_id)->first();
+            if ((int) $locked->company_id !== (int) $actor->company_id
+                || $authorization?->environment_code !== SiatEnvironment::TestingAndPilot) {
+                throw ValidationException::withMessages(['cafc_range' => 'Solo puede reiniciar CAFC de la empresa activa en ambiente de pruebas.']);
+            }
+            $rangeIds = $locked->derivedCopies()->pluck('id')->push($locked->id);
+            if (SinInvoiceIssue::withoutGlobalScope('company')->whereHas('manualContingency', fn (Builder $query) => $query->whereIn('sin_cafc_range_id', $rangeIds))
+                ->where('environment_code', '<>', SiatEnvironment::TestingAndPilot->value)->exists()) {
+                throw ValidationException::withMessages(['cafc_range' => 'Este CAFC contiene facturas de producción y no puede reiniciarse.']);
+            }
+            if (InvoiceTestBatch::withoutGlobalScope('company')->whereIn('sin_cafc_range_id', $rangeIds)
+                ->whereIn('batch_status', ['PENDING', 'RUNNING'])->exists()) {
+                throw ValidationException::withMessages(['cafc_range' => 'Espere a que terminen las pruebas en ejecución antes de eliminar el CAFC.']);
+            }
+            foreach (SinCafcRange::withoutGlobalScope('company')->whereIn('id', $rangeIds)->lockForUpdate()->get() as $testRange) {
+                $testRange->forceFill(['updated_by_user_id' => $actor->id])->save();
+                $testRange->delete();
+                $testRange->manualInvoices()->update(['retired_for_tests' => true]);
+            }
         }, 3);
     }
 
@@ -251,7 +279,10 @@ final class ManualCafcService
             }
 
             $locked->loadMissing(['company', 'cafcRange', 'pointOfSale.branch', 'significantEvent']);
-            $this->validateRange($locked->cafcRange, $locked->pointOfSale, (int) $locked->manual_invoice_number, $locked->issued_manually_at);
+            $range = SinCafcRange::withoutGlobalScope('company')->lockForUpdate()->findOrFail($locked->sin_cafc_range_id);
+            $locked->setRelation('cafcRange', $range);
+            app(ManualCafcCompliance::class)->validateTranscription($locked);
+            $this->validateRange($locked->cafcRange, $locked->pointOfSale, (int) $locked->manual_invoice_number, $locked->issued_manually_at, true);
             [$token, $authorization, $cuis, $cufd] = $this->fiscalConfiguration($locked);
             $invoiceDocumentTypeCode = InvoiceDocumentSector::invoiceDocumentTypeCode(
                 (int) $locked->document_sector_code,
@@ -376,6 +407,10 @@ final class ManualCafcService
             if ((int) $locked->company_id !== (int) $actor->company_id) {
                 throw ValidationException::withMessages(['cafc_range_id' => 'El CAFC no pertenece a la empresa activa.']);
             }
+            if (! $cancelled) {
+                $event ??= $locked->significantEvent;
+                app(ManualCafcCompliance::class)->validate($locked, $event, $issuedAt);
+            }
             if ($event !== null && ((int) $event->company_id !== (int) $locked->company_id || (int) $event->sin_point_of_sale_id !== (int) $point->id)) {
                 throw ValidationException::withMessages(['significant_event_id' => 'El evento no corresponde a la empresa y punto de venta.']);
             }
@@ -385,6 +420,18 @@ final class ManualCafcService
                 ->where('manual_invoice_number', $number)
                 ->exists()) {
                 throw ValidationException::withMessages(['manual_invoice_number' => 'El número ya fue utilizado o anulado.']);
+            }
+
+            if (! $locked->is_test_copy && SinManualContingencyInvoice::withoutGlobalScope('company')
+                ->where('company_id', $locked->company_id)
+                ->where('sin_branch_id', $locked->sin_branch_id)
+                ->where('sin_point_of_sale_id', $point->id)
+                ->where('document_sector_code', $locked->document_sector_code)
+                ->where('manual_invoice_number', $number)
+                ->where('is_test_copy', false)
+                ->where('retired_for_tests', false)
+                ->exists()) {
+                throw ValidationException::withMessages(['manual_invoice_number' => 'El número ya fue utilizado o anulado en otro CAFC activo del mismo punto de venta.']);
             }
 
             $manual = SinManualContingencyInvoice::query()->withoutGlobalScope('company')->create([
@@ -411,12 +458,12 @@ final class ManualCafcService
         }, 3);
     }
 
-    private function validateRange(SinCafcRange $range, SinPointOfSale $point, int $number, DateTimeInterface $issuedAt): void
+    private function validateRange(SinCafcRange $range, SinPointOfSale $point, int $number, DateTimeInterface $issuedAt, bool $alreadyReserved = false): void
     {
         if ((int) $point->company_id !== (int) $range->company_id || (int) $point->sin_branch_id !== (int) $range->sin_branch_id || ($range->sin_point_of_sale_id !== null && (int) $range->sin_point_of_sale_id !== (int) $point->id)) {
             throw ValidationException::withMessages(['sin_point_of_sale_id' => 'El punto de venta no está asignado al CAFC.']);
         }
-        if (! $range->range_status->canConsume()) {
+        if ($range->trashed() || (! $range->range_status->canConsume() && ! ($alreadyReserved && $range->range_status === CafcRangeStatus::Exhausted))) {
             throw ValidationException::withMessages(['cafc_range_id' => 'El rango CAFC no está disponible.']);
         }
         if ($number < $range->range_start || $number > $range->range_end) {
@@ -476,10 +523,17 @@ final class ManualCafcService
         $base = fn (string $model) => $model::query()->withoutGlobalScope('company')->where('company_id', $manual->company_id);
         $token = $base(SinApiToken::class)->first();
         $authorization = $base(SinAuthorization::class)->first();
-        $cuis = $base(SinCuis::class)->usable()->where('sin_point_of_sale_id', $manual->sin_point_of_sale_id)->latest('requested_at')->first();
-        $cufd = $base(SinCufd::class)->current()->where('sin_point_of_sale_id', $manual->sin_point_of_sale_id)->latest('requested_at')->first();
+        $cuis = $base(SinCuis::class)->successful()->where('sin_point_of_sale_id', $manual->sin_point_of_sale_id)
+            ->whereKey($manual->significantEvent?->sin_cuis_id)->first();
+        $cufdQuery = $base(SinCufd::class)->successful()
+            ->where('sin_point_of_sale_id', $manual->sin_point_of_sale_id)
+            ->where('sin_branch_id', $manual->sin_branch_id);
+        $cufd = $cufdQuery->whereKey($manual->significantEvent?->sin_cufd_id)->first();
+        if (! $cufd?->control_code) {
+            throw ValidationException::withMessages(['issued_manually_at' => 'No se encontró el CUFD de contingencia con su código de control para la fecha original de la factura.']);
+        }
         if (! $token || ! $authorization || ! $cuis || ! $cufd || $authorization->modality_code !== SiatModality::ComputerizedOnline) {
-            throw ValidationException::withMessages(['cafc_range_id' => 'Falta token, autorización, CUIS o CUFD vigente para transcribir y enviar.']);
+            throw ValidationException::withMessages(['cafc_range_id' => 'Falta token, autorización o la configuración fiscal registrada en el evento para transcribir.']);
         }
 
         return [$token, $authorization, $cuis, $cufd];

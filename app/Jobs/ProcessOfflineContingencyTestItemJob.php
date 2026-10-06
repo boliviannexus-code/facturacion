@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\CafcRangeStatus;
 use App\Enums\InvoiceFiscalStatus;
 use App\Enums\InvoicePackageStatus;
 use App\Enums\InvoiceTestBatchStatus;
@@ -18,9 +19,9 @@ use App\Services\Billing\InvoicePackageService;
 use App\Services\Billing\InvoiceTestBatchService;
 use App\Services\Billing\ManualCafcService;
 use App\Services\Billing\SaleCreationService;
+use App\Services\Billing\SequentialCafcTestPeriod;
 use App\Services\Siat\ContingencyRecoveryService;
 use App\Services\Siat\SignificantEventService;
-use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -237,69 +238,62 @@ final class ProcessOfflineContingencyTestItemJob implements ShouldQueue
         $point = $batch->pointOfSale()->with('branch')->firstOrFail();
 
         if (! $item->significantEvent) {
-            $manualInvoices = $range->manualInvoices()->orderBy('manual_invoice_number')->get();
-            if ($manualInvoices->count() > $batch->invoices_per_cycle) {
-                throw new RuntimeException('El CAFC contiene más facturas que las solicitadas por la prueba.');
-            }
+            $period = app(SequentialCafcTestPeriod::class)->prepare($point, (int) $batch->invoices_per_cycle);
+            if ($period['wait'] > 0) {
+                $item->update([
+                    'stage' => 'WAITING_CUFD_INTERVAL',
+                    'message' => 'Esperando un intervalo posterior al CUFD para iniciar el siguiente ciclo CAFC.',
+                ]);
+                $this->release($period['wait']);
 
-            for ($position = $manualInvoices->count() + 1; $position <= $batch->invoices_per_cycle; $position++) {
-                $range = SinCafcRange::query()->withoutGlobalScope('company')->findOrFail($range->id);
-                $issuedAt = CarbonImmutable::now()->subSeconds($batch->invoices_per_cycle - $position + 3);
-                $manual = $manualCafc->recordUsed(
-                    $range,
-                    $point,
-                    (int) $range->next_number,
-                    $issuedAt,
-                    $batch->user,
-                );
-                $manualCafc->transcribe($manual, $batch->customer, [
-                    'payment_method_code' => $batch->payment_method_code,
-                    'currency_code' => $batch->currency_code,
-                    'discount_amount' => 0,
-                    'total_amount' => (float) $batch->quantity * (float) $batch->unit_price,
-                    'observations' => "Prueba automática CAFC #{$batch->id}",
-                ], [[
-                    'product_id' => $batch->product_id,
-                    'quantity' => $batch->quantity,
-                    'unit_price' => $batch->unit_price,
-                    'discount_amount' => 0,
-                ]], $batch->user);
+                return;
             }
-
-            $manualInvoices = $range->manualInvoices()->with('invoice')->orderBy('issued_manually_at')->get();
-            $first = $manualInvoices->firstOrFail();
-            $last = $manualInvoices->last();
-            $period = $significantEvents->suggestedPeriod($point, $first->issued_manually_at, $last->issued_manually_at)
-                ?? throw new RuntimeException('No existe un CUFD histórico compatible con la prueba CAFC.');
-            $endedAt = $period['earliest_end']->min($period['latest_end']);
             $event = $significantEvents->registerForPointOfSale($batch->user, $point, [
-                'event_code' => (int) $batch->event_code,
-                'description' => (string) $batch->event_description,
-                'started_at' => $period['suggested_start']->toDateTimeString(),
-                'ended_at' => $endedAt->toDateTimeString(),
+                'event_code' => (int) $batch->event_code, 'description' => (string) $batch->event_description,
+                'started_at' => $period['start']->toDateTimeString(),
+                'ended_at' => $period['end']->toDateTimeString(),
             ]);
-            if (! $event->transaccion) {
+            if (! $event->transaccion || blank($event->reception_code)) {
                 $this->failCycle($event->message ?: 'SIAT no aceptó el evento de prueba CAFC.');
 
                 return;
             }
-
-            DB::transaction(function () use ($range, $event, $manualInvoices, $item): void {
+            DB::transaction(function () use ($range, $event, $item): void {
                 $range->forceFill(['sin_significant_event_id' => $event->id])->save();
-                foreach ($manualInvoices as $manual) {
-                    $manual->forceFill(['sin_significant_event_id' => $event->id])->save();
-                    $manual->invoice?->forceFill(['sin_significant_event_id' => $event->id])->save();
-                }
-                $item->update([
-                    'sin_invoice_issue_id' => $manualInvoices->first()?->sin_invoice_issue_id,
-                    'sin_significant_event_id' => $event->id,
-                    'stage' => 'PACKAGING',
-                    'message' => "{$manualInvoices->count()} factura(s) CAFC transcritas; generando paquete.",
-                ]);
+                $item->update(['sin_significant_event_id' => $event->id, 'stage' => 'TRANSCRIBING']);
             }, 3);
-            $packages->buildForEvent($event, $batch->user);
             $item = $this->item();
         }
+        $event = $item->significantEvent;
+        $manualInvoices = $range->manualInvoices()->orderBy('manual_invoice_number')->get();
+        if ($manualInvoices->count() > $batch->invoices_per_cycle) {
+            throw new RuntimeException('El CAFC contiene más facturas que las solicitadas por la prueba.');
+        }
+        for ($position = 1; $position <= $batch->invoices_per_cycle; $position++) {
+            $manual = $manualInvoices->get($position - 1);
+            if (! $manual) {
+                $range = SinCafcRange::query()->withoutGlobalScope('company')->findOrFail($range->id);
+                $manual = $manualCafc->recordUsed($range, $point, (int) $range->next_number,
+                    $event->ended_at->subSeconds($batch->invoices_per_cycle - $position + 1), $batch->user, $event);
+            }
+            if ($manual->sin_invoice_issue_id === null) {
+                $manualCafc->transcribe($manual, $batch->customer, [
+                    'payment_method_code' => $batch->payment_method_code, 'currency_code' => $batch->currency_code,
+                    'discount_amount' => 0, 'total_amount' => (float) $batch->quantity * (float) $batch->unit_price,
+                    'observations' => "Prueba automática CAFC #{$batch->id}",
+                ], [[
+                    'product_id' => $batch->product_id, 'quantity' => $batch->quantity,
+                    'unit_price' => $batch->unit_price, 'discount_amount' => 0,
+                ]], $batch->user);
+            }
+        }
+        if ($range->range_status->canConsume() || $range->range_status === CafcRangeStatus::Exhausted) {
+            $range->forceFill(['range_status' => CafcRangeStatus::Blocked])->save();
+        }
+        $item->update([
+            'sin_invoice_issue_id' => $range->manualInvoices()->orderBy('manual_invoice_number')->first()?->sin_invoice_issue_id,
+            'stage' => 'PACKAGING', 'message' => 'Evento registrado y facturas CAFC transcritas; generando paquete.',
+        ]);
 
         $event = $item->significantEvent;
         $package = $item->invoicePackage ?? $event?->packages()->orderBy('id')->first();

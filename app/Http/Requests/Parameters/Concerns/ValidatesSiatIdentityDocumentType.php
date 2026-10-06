@@ -33,6 +33,15 @@ trait ValidatesSiatIdentityDocumentType
 
             $documentNumber = (string) $this->input('document_number');
 
+            if (preg_match('/\A0+\z/', $documentNumber)) {
+                $validator->errors()->add(
+                    'document_number',
+                    'El numero de documento no puede ser cero.'
+                );
+
+                return;
+            }
+
             if (
                 SiatIdentityDocumentTypes::requiresIdentityCardDigits($code)
                 && ! preg_match('/^\d{5,10}$/', $documentNumber)

@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use App\Enums\ManualContingencyInvoiceStatus;
+use App\Enums\InvoiceEmissionMode;
 use App\Enums\SignificantEventStatus;
 use App\Events\SignificantEventRegistered;
 use App\Jobs\BuildContingencyPackagesJob;
-use App\Jobs\SendManualCafcInvoiceJob;
 use App\Models\SinSignificantEvent;
 
 final class StartContingencyPackaging
@@ -24,19 +23,17 @@ final class StartContingencyPackaging
             return;
         }
 
+        if (in_array((int) $significantEvent->event_code, [5, 6, 7], true)
+            && ($significantEvent->invoiceIssue === null || $significantEvent->invoiceIssue->emission_mode === InvoiceEmissionMode::ManualCafc)
+            && ! $significantEvent->invoiceIssues()->where('emission_mode', '<>', InvoiceEmissionMode::ManualCafc)->exists()) {
+            return;
+        }
+
         BuildContingencyPackagesJob::dispatch(
             $event->companyId,
             $event->significantEventId,
             $significantEvent->registered_by_user_id ?? $significantEvent->user_id,
         );
 
-        $significantEvent->manualInvoices()
-            ->where('manual_status', ManualContingencyInvoiceStatus::PendingSend)
-            ->pluck('id')
-            ->each(fn (int $manualId) => SendManualCafcInvoiceJob::dispatch(
-                $event->companyId,
-                $manualId,
-                $significantEvent->registered_by_user_id ?? $significantEvent->user_id,
-            ));
     }
 }

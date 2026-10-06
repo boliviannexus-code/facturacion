@@ -22,6 +22,7 @@ use App\Models\SinAuthorization;
 use App\Models\SinBranch;
 use App\Models\SinCafcRange;
 use App\Models\SinCatalogItem;
+use App\Models\SinCufd;
 use App\Models\SinInvoiceIssue;
 use App\Models\SinPointOfSale;
 use App\Models\SinSignificantEvent;
@@ -30,6 +31,7 @@ use App\Services\Billing\InvoiceDocumentSector;
 use App\Services\Billing\InvoiceIssuanceService;
 use App\Services\Billing\InvoiceTestBatchService;
 use App\Services\Billing\SaleCreationService;
+use App\Services\Billing\SequentialCafcTestPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Spatie\Permission\Models\Permission;
@@ -508,6 +510,50 @@ final class InvoiceTestBatchTest extends TestCase
 
         self::assertNull($batch->refresh()->reversal_status);
         Bus::assertNothingDispatched();
+    }
+
+    public function test_sequential_cafc_cycle_waits_after_each_cufd_replacement(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $periods = app(SequentialCafcTestPeriod::class);
+        for ($cycle = 1; $cycle <= 4; $cycle++) {
+            SinCufd::withoutGlobalScope('company')->where('sin_point_of_sale_id', $this->point->id)
+                ->whereNull('invalidated_at')->update(['invalidated_at' => now()]);
+            $cufd = SinCufd::factory()->create([
+                'company_id' => $this->company->id, 'sin_branch_id' => $this->branch->id,
+                'sin_point_of_sale_id' => $this->point->id, 'transaccion' => true,
+                'requested_at' => now(), 'expires_at' => now()->addDay(), 'invalidated_at' => null,
+            ]);
+            $period = $periods->prepare($this->point, 1);
+            self::assertSame(4, $period['wait']);
+            $this->travel($period['wait'])->seconds();
+            $period = $periods->prepare($this->point, 1);
+            self::assertSame(0, $period['wait']);
+            self::assertTrue($period['start']->gt($cufd->requested_at));
+            self::assertTrue($period['end']->lt(now()));
+            self::assertTrue($period['start']->lt($period['end']));
+        }
+    }
+
+    public function test_sequential_cafc_interval_fits_all_500_invoice_timestamps(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $cufd = SinCufd::factory()->create([
+            'company_id' => $this->company->id, 'sin_branch_id' => $this->branch->id,
+            'sin_point_of_sale_id' => $this->point->id, 'transaccion' => true,
+            'requested_at' => now(), 'expires_at' => now()->addDay(), 'invalidated_at' => null,
+        ]);
+        $periods = app(SequentialCafcTestPeriod::class);
+        $period = $periods->prepare($this->point, 500);
+        self::assertSame(503, $period['wait']);
+        $this->travel($period['wait'])->seconds();
+        $period = $periods->prepare($this->point, 500);
+        self::assertSame(0, $period['wait']);
+        self::assertTrue($period['start']->gt($cufd->requested_at));
+        for ($position = 1; $position <= 500; $position++) {
+            $issuedAt = $period['end']->subSeconds(500 - $position + 1);
+            self::assertTrue($issuedAt->betweenIncluded($period['start'], $period['end']));
+        }
     }
 
     /** @return array<string, int|float> */

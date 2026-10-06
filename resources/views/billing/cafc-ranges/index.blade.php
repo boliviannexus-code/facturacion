@@ -88,7 +88,7 @@
                             @can('cafc-ranges.manage')
                                 <td class="text-end">
                                     @if ($range->canBeDeleted())
-                                        <form method="POST" action="{{ route('billing.cafc-ranges.destroy', $range) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este CAFC? Esta acción no se puede deshacer.')">
+                                        <form method="POST" action="{{ route('billing.cafc-ranges.destroy', $range) }}" class="d-inline" data-confirm-action data-confirm-title="¿Eliminar este CAFC?" data-confirm-text="Esta acción no se puede deshacer." data-confirm-button="Sí, eliminar">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-outline-danger btn-sm" type="submit" aria-label="Eliminar CAFC {{ $range->cafc_code }}">

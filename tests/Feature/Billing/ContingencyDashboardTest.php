@@ -491,7 +491,7 @@ final class ContingencyDashboardTest extends TestCase
             ->get(route('billing.invoices.xml', $this->offlineInvoice))
             ->assertOk()
             ->assertHeader('content-type', 'application/xml; charset=UTF-8')
-            ->assertHeader('content-disposition', 'inline; filename="factura-'.$this->offlineInvoice->invoice_number.'.xml"')
+            ->assertHeader('content-disposition', 'inline; filename="factura-'.($this->offlineInvoice->invoice_number ?? $this->offlineInvoice->id).'.xml"')
             ->assertSeeText('visible');
     }
 

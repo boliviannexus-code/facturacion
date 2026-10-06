@@ -95,6 +95,74 @@ class PurchaseSaleInvoicePdfServiceTest extends TestCase
         $this->assertGreaterThan(1000, strlen($pdf));
     }
 
+    public function test_half_page_paginates_all_500_items_and_numbers_every_sheet(): void
+    {
+        $invoice = $this->invoice(environmentCode: 1);
+        $payload = $invoice->payload;
+        $template = $payload['detalle'][0];
+        $payload['detalle'] = [];
+        for ($i = 1; $i <= 500; $i++) {
+            $payload['detalle'][] = array_replace($template, [
+                'codigoProducto' => sprintf('ITEM%04d', $i),
+                'descripcion' => 'Producto de prueba',
+            ]);
+        }
+        $invoice->payload = $payload;
+        $pdf = app(PurchaseSaleInvoicePdfService::class)->render($invoice);
+        $streams = $this->pageStreams($pdf);
+        $this->assertGreaterThan(1, count($streams));
+        foreach ($streams as $index => $stream) {
+            $this->assertStringContainsString('('.($index + 1).' de '.count($streams).')', $stream);
+            $this->assertStringContainsString('(123456789)', $stream);
+        }
+        $content = implode("\n", $streams);
+        for ($i = 1; $i <= 500; $i++) {
+            $this->assertSame(1, substr_count($content, '('.sprintf('ITEM%04d', $i).')'));
+        }
+        $this->assertSame(1, substr_count($content, '(TOTAL Bs.)'));
+        $this->assertStringContainsString('(TOTAL Bs.)', $streams[array_key_last($streams)]);
+    }
+
+    public function test_long_description_continues_without_losing_its_end_or_next_item(): void
+    {
+        $invoice = $this->invoice();
+        $payload = $invoice->payload;
+        $template = $payload['detalle'][0];
+        $payload['detalle'] = [
+            array_replace($template, ['codigoProducto' => 'LONG001', 'descripcion' => str_repeat('Descripcion extensa ', 24).'FINDETALLE']),
+            array_replace($template, ['codigoProducto' => 'NEXT002']),
+        ];
+        $invoice->payload = $payload;
+        $streams = $this->pageStreams(app(PurchaseSaleInvoicePdfService::class)->render($invoice));
+        $this->assertGreaterThan(1, count($streams));
+        $content = implode("\n", $streams);
+        $this->assertSame(1, substr_count($content, '(LONG001)'));
+        $this->assertSame(1, substr_count($content, '(NEXT002)'));
+        $this->assertStringContainsString('FINDETALLE', $content);
+        $this->assertSame(24, substr_count($content, 'Descripcion'));
+    }
+
+    public function test_single_sheet_has_numbering_without_an_extra_blank_page(): void
+    {
+        $streams = $this->pageStreams(app(PurchaseSaleInvoicePdfService::class)->render($this->invoice()));
+        $this->assertCount(1, $streams);
+        $this->assertStringContainsString('(1 de 1)', $streams[0]);
+    }
+
+    private function pageStreams(string $pdf): array
+    {
+        preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $pdf, $matches);
+        $streams = [];
+        foreach ($matches[1] as $encoded) {
+            $decoded = @gzuncompress($encoded);
+            if ($decoded !== false && str_contains($decoded, ' de ')) {
+                $streams[] = $decoded;
+            }
+        }
+
+        return $streams;
+    }
+
     private function invoice(?InvoicePrintFormat $printFormat = null, int $environmentCode = 2): SinInvoiceIssue
     {
         $company = new Company([

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\CafcRangeStatus;
 use App\Models\SinManualContingencyInvoice;
-use App\Models\User;
-use App\Services\Billing\ManualCafcInvoiceSender;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -46,10 +45,12 @@ final class SendManualCafcInvoiceJob implements ShouldBeUnique, ShouldQueue
         return [(new WithoutOverlapping($this->uniqueId()))->releaseAfter(5)->expireAfter(150)];
     }
 
-    public function handle(ManualCafcInvoiceSender $sender): void
+    public function handle(): void
     {
         $manual = SinManualContingencyInvoice::query()->withoutGlobalScope('company')->where('company_id', $this->companyId)->findOrFail($this->manualInvoiceId);
-        $actor = $this->actorId ? User::query()->withoutGlobalScope('company')->where('company_id', $this->companyId)->find($this->actorId) : null;
-        $sender->send($manual, $actor);
+        if ($manual->cafcRange->range_status !== CafcRangeStatus::Blocked || ! $manual->sin_significant_event_id) {
+            return;
+        }
+        BuildContingencyPackagesJob::dispatch($this->companyId, (int) $manual->sin_significant_event_id, $this->actorId);
     }
 }

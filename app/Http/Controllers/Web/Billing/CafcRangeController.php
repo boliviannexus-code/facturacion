@@ -43,6 +43,12 @@ class CafcRangeController extends Controller
 
     public function destroy(Request $request, SinCafcRange $cafcRange): RedirectResponse
     {
+        if ($request->boolean('restart_tests')) {
+            $this->cafc->deleteTestRange($cafcRange, $request->user());
+
+            return redirect()->route('billing.cafc-contingencies.index')->with('success', 'CAFC retirado de pruebas. Puede registrar nuevamente el mismo código y numeración; el historial anterior se conserva.');
+        }
+
         $this->cafc->deleteUnusedRange($cafcRange, $request->user());
 
         return back()->with('success', 'Rango CAFC eliminado correctamente.');

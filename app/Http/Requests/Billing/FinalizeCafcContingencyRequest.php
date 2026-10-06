@@ -23,8 +23,8 @@ final class FinalizeCafcContingencyRequest extends FormRequest
             'event_code' => ['required', 'integer', Rule::in([5, 6, 7]), Rule::exists('sin_catalog_items', 'classifier_code')
                 ->where('company_id', $companyId)->where('catalog_key', 'eventos_significativos')->where('is_active', true)],
             'event_description' => ['required', 'string', 'max:500'],
-            'event_started_at' => ['required', 'date'],
-            'event_ended_at' => ['required', 'date', 'after:event_started_at', 'before_or_equal:now'],
+            'event_started_at' => ['required', 'date', 'before:now'],
+            'event_ended_at' => ['required', 'date', 'after:event_started_at', 'before_or_equal:now', 'after_or_equal:'.now()->subHours(48)->format('Y-m-d H:i:s')],
         ];
     }
 

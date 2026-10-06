@@ -97,7 +97,7 @@ final class SinMonitoringAlert extends Model
 
     public function cafcRange(): BelongsTo
     {
-        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id');
+        return $this->belongsTo(SinCafcRange::class, 'sin_cafc_range_id')->withTrashed();
     }
 
     public function authorization(): BelongsTo

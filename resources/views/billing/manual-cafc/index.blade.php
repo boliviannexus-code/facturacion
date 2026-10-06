@@ -54,7 +54,7 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="issued_manually_at">Fecha y hora original</label>
-                            <input class="form-control" type="datetime-local" step="1" id="issued_manually_at" name="issued_manually_at" value="{{ old('issued_manually_at') }}" required>
+                            <input class="form-control form-control-lg" type="datetime-local" step="1" id="issued_manually_at" name="issued_manually_at" value="{{ old('issued_manually_at') }}" required>
                         </div>
                         <div class="col-12 d-none" data-void-reason>
                             <label class="form-label" for="void_reason">Motivo de anulación</label>
@@ -78,7 +78,7 @@
                             <td>{{ $manual->pointOfSale->display_name }}</td>
                             <td><span class="badge {{ $manual->manual_status === \App\Enums\ManualContingencyInvoiceStatus::Cancelled ? 'bg-danger-lt' : 'bg-blue-lt' }}">{{ $manual->manual_status->label() }}</span></td>
                             <td class="text-end">
-                                @if ($manual->manual_status === \App\Enums\ManualContingencyInvoiceStatus::PendingTranscription)
+                                @if ($manual->manual_status === \App\Enums\ManualContingencyInvoiceStatus::PendingTranscription && ! $manual->cafcRange->trashed())
                                     @can('manual-cafc.transcribe')<a class="btn btn-primary btn-sm" href="{{ route('billing.manual-cafc.transcribe.edit', $manual) }}">Transcribir</a>@endcan
                                 @elseif ($manual->manual_status === \App\Enums\ManualContingencyInvoiceStatus::PendingSend)
                                     @can('manual-cafc.transcribe')<form method="POST" action="{{ route('billing.manual-cafc.send', $manual) }}" class="d-inline">@csrf<button class="btn btn-outline-primary btn-sm">Reintentar envío</button></form>@endcan

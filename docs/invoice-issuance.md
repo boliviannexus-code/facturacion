@@ -48,3 +48,17 @@ El proyecto aun no posee tablas de existencias ni pagos. `SaleCommercialEffectSe
 sola vez `inventory_applied_at`, `payment_registered_at` y `commercial_confirmed_at` bajo el lock de la
 venta. Estos marcadores son los puntos idempotentes que deberan envolver los movimientos reales cuando
 se incorporen dichos modulos.
+
+## Impresion en media hoja
+
+La representacion grafica usa A5 horizontal y pagina el detalle segun la altura real de todas
+las celdas. Cada hoja conserva la identificacion fiscal, los datos del cliente, el encabezado
+de columnas, QR y leyendas. Los totales de la factura aparecen una sola vez, en la ultima hoja.
+Las celdas demasiado largas continuan en las hojas siguientes sin repetir cantidades ni importes.
+
+La numeracion `1 de n` se imprime en el centro superior de cada hoja, conforme al articulo 70.IV
+de la RND N. 102100000011 del SIN:
+https://unumlex.impuestos.gob.bo/wp-content/uploads/2022/02/RND-No-102100000011-SISTEMA-DE-FACTURACION-MOD-14-04-2023-1.pdf
+
+La paginacion solo modifica el PDF; conserva el numero de factura, CUF, XML e importes.
+La opcion Rollo mantiene su formato de ticket. Los PDF ya archivados no se regeneran con este cambio.

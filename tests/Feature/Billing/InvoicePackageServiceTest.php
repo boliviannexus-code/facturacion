@@ -37,6 +37,7 @@ use App\Services\Billing\Packages\PackageInvoiceValidationResult;
 use App\Services\Billing\Packages\PackageReceptionResult;
 use App\Services\Billing\Packages\PackageTransportException;
 use App\Services\Billing\Packages\PackageValidationResult;
+use App\Services\Siat\SiatCufGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -118,7 +119,7 @@ final class InvoicePackageServiceTest extends TestCase
 
     public function test_builds_manual_cafc_invoice_as_offline_package_with_cafc_code(): void
     {
-        $context = $this->context(1);
+        $context = $this->context(1, true);
         $invoice = $context['invoices']->firstOrFail();
         $invoice->forceFill([
             'emission_mode' => InvoiceEmissionMode::ManualCafc,
@@ -130,6 +131,7 @@ final class InvoicePackageServiceTest extends TestCase
             'sin_point_of_sale_id' => $context['point']->id,
             'created_by_user_id' => $context['user']->id,
             'sin_significant_event_id' => $context['event']->id,
+            'range_status' => CafcRangeStatus::Blocked,
             'cafc_code' => 'CAFC-PACKAGE-TEST',
         ]);
         SinManualContingencyInvoice::factory()->create([
@@ -139,6 +141,10 @@ final class InvoicePackageServiceTest extends TestCase
             'sin_invoice_issue_id' => $invoice->id,
             'sin_branch_id' => $context['branch']->id,
             'sin_point_of_sale_id' => $context['point']->id,
+            'manual_invoice_number' => $invoice->attempted_invoice_number,
+            'xml_path' => $invoice->xml_path,
+            'xml_hash' => hash('sha256', Storage::disk('local')->get($invoice->xml_path)),
+            'issued_manually_at' => $invoice->issued_at,
             'created_by_user_id' => $context['user']->id,
         ]);
 
@@ -452,7 +458,7 @@ final class InvoicePackageServiceTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function context(int $invoiceCount): array
+    private function context(int $invoiceCount, bool $manual = false): array
     {
         $company = Company::factory()->create();
         $user = User::factory()->create(['company_id' => $company->id]);
@@ -486,6 +492,7 @@ final class InvoicePackageServiceTest extends TestCase
             'sin_cuis_id' => $cuis->id,
             'branch_code' => 1,
             'point_of_sale_code' => 1,
+            'requested_at' => now()->subHours(2),
             'expires_at' => now()->subMinute(),
         ]);
         $recoveryCufd = SinCufd::factory()->create([
@@ -512,6 +519,7 @@ final class InvoicePackageServiceTest extends TestCase
             'sin_cufd_id' => $oldCufd->id,
             'recovery_sin_cufd_id' => $recoveryCufd->id,
             'event_status' => SignificantEventStatus::Registered,
+            'event_code' => $manual ? 5 : 1,
             'ended_at' => $recoveredAt,
             'recovery_detected_at' => $recoveredAt,
             'reception_code' => 'EVENT-'.str_pad((string) $company->id, 8, '0', STR_PAD_LEFT),
@@ -522,7 +530,7 @@ final class InvoicePackageServiceTest extends TestCase
 
         $this->insertInvoices(
             $invoiceCount,
-            compact('company', 'user', 'customer', 'branch', 'point', 'token', 'authorization', 'cuis', 'oldCufd', 'event'),
+            compact('company', 'user', 'customer', 'branch', 'point', 'token', 'authorization', 'cuis', 'oldCufd', 'event', 'manual'),
         );
         $invoices = SinInvoiceIssue::query()
             ->withoutGlobalScope('company')
@@ -544,9 +552,14 @@ final class InvoicePackageServiceTest extends TestCase
         $now = now();
 
         for ($position = 1; $position <= $count; $position++) {
-            $cuf = 'PKG'.str_pad((string) $position, 20, '0', STR_PAD_LEFT);
+            $issuedAt = ($context['manual'] ?? false) ? $context['event']->ended_at->subSecond() : $now->copy()->addSeconds($position);
+            $cuf = ($context['manual'] ?? false)
+                ? app(SiatCufGenerator::class)->generate('123456789', $issuedAt, 1, 2, 2, 1, 1, $position, 1, $context['oldCufd']->control_code)
+                : 'PKG'.str_pad((string) $position, 20, '0', STR_PAD_LEFT);
             $xmlPath = "siat/invoices/{$context['company']->id}/{$cuf}.xml";
-            $xml = $this->xml($cuf);
+            $xml = ($context['manual'] ?? false)
+                ? '<factura><cabecera><cuf>'.$cuf.'</cuf><cufd>'.$context['oldCufd']->cufd_code.'</cufd></cabecera></factura>'
+                : $this->xml($cuf);
             Storage::disk('local')->put($xmlPath, $xml);
             $rows[] = [
                 'company_id' => $context['company']->id,
@@ -574,6 +587,7 @@ final class InvoicePackageServiceTest extends TestCase
                 'invoice_number' => $position,
                 'cuf' => $cuf,
                 'cufd_code' => (string) $context['oldCufd']->cufd_code,
+                'control_code' => (string) $context['oldCufd']->control_code,
                 'status_label' => 'Emitida fuera de linea',
                 'transaccion' => false,
                 'xml_path' => $xmlPath,
@@ -584,7 +598,7 @@ final class InvoicePackageServiceTest extends TestCase
                 'taxable_amount' => 100,
                 'payload' => json_encode(['test' => true], JSON_THROW_ON_ERROR),
                 'duration_ms' => 0,
-                'issued_at' => $now->copy()->addSeconds($position),
+                'issued_at' => $issuedAt,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];

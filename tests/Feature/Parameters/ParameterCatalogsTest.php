@@ -225,6 +225,42 @@ class ParameterCatalogsTest extends TestCase
             ->assertSessionHasErrors('identity_document_type_code');
     }
 
+    public function test_customer_rejects_zero_document_numbers_for_all_types_on_create_and_update(): void
+    {
+        $user = $this->companyUser(['customers.create', 'customers.edit']);
+        $customer = Customer::factory()->create([
+            'company_id' => $user->company_id,
+            'identity_document_type_code' => 1,
+            'document_number' => '1234567',
+        ]);
+
+        foreach (['1', '2', '3', '4', '5'] as $code) {
+            $this->seedSiatIdentityDocumentType($user->company_id, $code, 'Documento '.$code);
+
+            foreach (['0', '00000', ' 0 '] as $number) {
+                $payload = [
+                    'identity_document_type_code' => $code,
+                    'document_number' => $number,
+                    'name' => 'Cliente documento cero',
+                ];
+
+                $this->actingAs($user)
+                    ->postJson(route('parameters.customers.store'), $payload)
+                    ->assertUnprocessable()
+                    ->assertJsonValidationErrors(['document_number'])
+                    ->assertJsonPath('errors.document_number.0', 'El numero de documento no puede ser cero.');
+
+                $this->actingAs($user)
+                    ->putJson(route('parameters.customers.update', $customer), $payload)
+                    ->assertUnprocessable()
+                    ->assertJsonValidationErrors(['document_number'])
+                    ->assertJsonPath('errors.document_number.0', 'El numero de documento no puede ser cero.');
+            }
+        }
+
+        $this->assertSame('1234567', $customer->fresh()->document_number);
+    }
+
     public function test_customer_validates_identity_card_digits_and_length(): void
     {
         $user = $this->companyUser([

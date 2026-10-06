@@ -161,8 +161,10 @@ Route::middleware(['auth', 'active_account'])->group(function (): void {
                 ->whereNumber('cafcRange')->middleware('permission:cafc-ranges.manage')->name('cafc-contingencies.code.update');
             Route::post('contingencias-2/{cafcRange}/facturas', [CafcContingencyController::class, 'storeInvoice'])
                 ->whereNumber('cafcRange')->middleware('permission:manual-cafc.use')->name('cafc-contingencies.invoices.store');
-            Route::post('contingencias-2/{cafcRange}/finalizar', [CafcContingencyController::class, 'finalize'])
-                ->whereNumber('cafcRange')->middleware('permission:manual-cafc.use')->name('cafc-contingencies.finalize');
+            Route::post('contingencias-2/{cafcRange}/evento', [CafcContingencyController::class, 'registerEvent'])
+                ->whereNumber('cafcRange')->middleware('permission:manual-cafc.use')->name('cafc-contingencies.events.store');
+            Route::post('contingencias-2/{cafcRange}/finalizar', [CafcContingencyController::class, 'send'])
+                ->whereNumber('cafcRange')->middleware('permission:manual-cafc.use')->name('cafc-contingencies.send');
             Route::get('manuales-cafc', [ManualCafcInvoiceController::class, 'index'])
                 ->middleware('permission:manual-cafc.view')->name('manual-cafc.index');
             Route::post('manuales-cafc', [ManualCafcInvoiceController::class, 'store'])
