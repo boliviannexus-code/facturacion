@@ -43,6 +43,19 @@ final class InvoiceCustomerNotificationJobTest extends TestCase
         self::assertNotNull($invoice->refresh()->issuance_notified_at);
     }
 
+    public function test_repeated_issuance_job_does_not_send_the_email_twice(): void
+    {
+        $invoice = $this->invoiceWithArtifacts();
+        $job = new SendInvoiceCustomerNotificationJob($invoice->id, InvoiceCustomerNotificationType::Issued);
+        $job->handle(app(PurchaseSaleInvoicePdfService::class));
+        $notifiedAt = $invoice->refresh()->issuance_notified_at;
+
+        $job->handle(app(PurchaseSaleInvoicePdfService::class));
+
+        Notification::assertSentOnDemandTimes(InvoiceIssuedNotification::class, 1);
+        self::assertTrue($invoice->refresh()->issuance_notified_at->eq($notifiedAt));
+    }
+
     public function test_cancellation_email_also_contains_original_artifacts(): void
     {
         $invoice = $this->invoiceWithArtifacts();

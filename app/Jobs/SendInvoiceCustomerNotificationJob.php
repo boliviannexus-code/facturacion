@@ -47,7 +47,8 @@ final class SendInvoiceCustomerNotificationJob implements ShouldBeUnique, Should
             ->with(['company', 'customer', 'pointOfSale.branch', 'sale.items'])
             ->findOrFail($this->invoiceId);
 
-        if (blank($invoice->customer?->email)) {
+        if (($this->type === InvoiceCustomerNotificationType::Issued && $invoice->issuance_notified_at !== null)
+            || blank($invoice->customer?->email)) {
             return;
         }
 

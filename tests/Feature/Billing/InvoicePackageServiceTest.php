@@ -6,6 +6,7 @@ namespace Tests\Feature\Billing;
 
 use App\Enums\CafcRangeStatus;
 use App\Enums\InvoiceCommercialStatus;
+use App\Enums\InvoiceCustomerNotificationType;
 use App\Enums\InvoiceEmissionMode;
 use App\Enums\InvoiceFiscalStatus;
 use App\Enums\InvoicePackageStatus;
@@ -16,6 +17,7 @@ use App\Enums\SiatErrorType;
 use App\Enums\SiatModality;
 use App\Enums\SignificantEventStatus;
 use App\Jobs\SendContingencyPackageJob;
+use App\Jobs\SendInvoiceCustomerNotificationJob;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\SinApiToken;
@@ -231,6 +233,52 @@ final class InvoicePackageServiceTest extends TestCase
         $this->assertDatabaseHas('sin_response_messages', ['description' => 'Paquete validado.']);
     }
 
+    public function test_manual_package_notifies_only_individually_validated_invoices_once(): void
+    {
+        $context = $this->context(2, manual: true);
+        $this->prepareManualInvoices($context);
+        $context['customer']->forceFill(['email' => 'cliente@example.test'])->save();
+        $first = $context['invoices'][0];
+        $second = $context['invoices'][1];
+        $fake = new SequenceInvoicePackageSiatClient(
+            [$this->acceptedReception('RECEPTION-MANUAL-EMAIL')],
+            [$this->validation(PackageValidationOutcome::Observed, 904, 'Resultado mixto.', [
+                new PackageInvoiceValidationResult($first->cuf, PackageValidationOutcome::Validated, 908, 'Validada.'),
+                new PackageInvoiceValidationResult($second->cuf, PackageValidationOutcome::Rejected, 902, 'Rechazada.'),
+            ])],
+        );
+        $service = $this->service($fake);
+        $package = $service->buildForEvent($context['event'], $context['user'])->firstOrFail();
+        $package = $service->send($package, $context['user'])->package;
+        Queue::assertNotPushed(SendInvoiceCustomerNotificationJob::class);
+
+        $service->checkValidation($package, $context['user']);
+        $service->checkValidation($package->refresh(), $context['user']);
+
+        Queue::assertPushed(SendInvoiceCustomerNotificationJob::class, fn ($job): bool => $job->invoiceId === $first->id && $job->type === InvoiceCustomerNotificationType::Issued);
+        Queue::assertPushed(SendInvoiceCustomerNotificationJob::class, 1);
+        self::assertSame(InvoiceFiscalStatus::Rejected, $second->refresh()->fiscal_status);
+    }
+
+    public function test_validated_manual_package_skips_clients_without_email_and_already_notified_invoices(): void
+    {
+        $context = $this->context(2, manual: true);
+        $this->prepareManualInvoices($context);
+        $context['customer']->forceFill(['email' => null])->save();
+        $emailedCustomer = Customer::factory()->create(['company_id' => $context['company']->id, 'email' => 'ya-enviado@example.test']);
+        $context['invoices'][0]->forceFill(['customer_id' => $emailedCustomer->id, 'issuance_notified_at' => now()])->save();
+        $fake = new SequenceInvoicePackageSiatClient(
+            [$this->acceptedReception('RECEPTION-MANUAL-NO-EMAIL')],
+            [$this->validation(PackageValidationOutcome::Validated, 908, 'Validado.')],
+        );
+        $service = $this->service($fake);
+        $package = $service->buildForEvent($context['event'], $context['user'])->firstOrFail();
+        $package = $service->send($package, $context['user'])->package;
+        $service->checkValidation($package, $context['user']);
+
+        Queue::assertNotPushed(SendInvoiceCustomerNotificationJob::class);
+    }
+
     public function test_marks_package_and_invoices_as_observed(): void
     {
         [$context, $service, $package] = $this->sentPackage(
@@ -405,6 +453,39 @@ final class InvoicePackageServiceTest extends TestCase
     /**
      * @return array{array<string, mixed>, InvoicePackageService, SinInvoicePackage}
      */
+    /** @param array<string, mixed> $context */
+    private function prepareManualInvoices(array $context): void
+    {
+        $range = SinCafcRange::factory()->create([
+            'company_id' => $context['company']->id,
+            'sin_branch_id' => $context['branch']->id,
+            'sin_point_of_sale_id' => $context['point']->id,
+            'created_by_user_id' => $context['user']->id,
+            'sin_significant_event_id' => $context['event']->id,
+            'range_status' => CafcRangeStatus::Blocked,
+            'cafc_code' => 'CAFC-PACKAGE-EMAIL',
+        ]);
+        foreach ($context['invoices'] as $invoice) {
+            $invoice->forceFill([
+                'emission_mode' => InvoiceEmissionMode::ManualCafc,
+                'fiscal_status' => InvoiceFiscalStatus::PendingPackage,
+            ])->save();
+            SinManualContingencyInvoice::factory()->create([
+                'company_id' => $context['company']->id,
+                'sin_cafc_range_id' => $range->id,
+                'sin_significant_event_id' => $context['event']->id,
+                'sin_invoice_issue_id' => $invoice->id,
+                'sin_branch_id' => $context['branch']->id,
+                'sin_point_of_sale_id' => $context['point']->id,
+                'manual_invoice_number' => $invoice->attempted_invoice_number,
+                'xml_path' => $invoice->xml_path,
+                'xml_hash' => hash('sha256', Storage::disk('local')->get($invoice->xml_path)),
+                'issued_manually_at' => $invoice->issued_at,
+                'created_by_user_id' => $context['user']->id,
+            ]);
+        }
+    }
+
     private function sentPackage(PackageValidationResult $validation): array
     {
         $context = $this->context(1);

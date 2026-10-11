@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Billing;
 
 use App\Enums\CafcRangeStatus;
+use App\Enums\InvoiceCustomerNotificationType;
 use App\Enums\InvoiceEmissionMode;
 use App\Enums\InvoiceFiscalStatus;
 use App\Enums\InvoicePackageStatus;
@@ -15,6 +16,7 @@ use App\Enums\SiatErrorType;
 use App\Enums\SiatMessageSeverity;
 use App\Enums\SiatOperation;
 use App\Enums\SignificantEventStatus;
+use App\Jobs\SendInvoiceCustomerNotificationJob;
 use App\Models\SinCafcRange;
 use App\Models\SinFiscalStatusHistory;
 use App\Models\SinInvoiceIssue;
@@ -493,6 +495,18 @@ final class InvoicePackageService
             ])->save();
             $this->syncManualStatus($invoice, $to);
             $this->recordTransition($invoice, $from, $to, $attempt, $message);
+
+            if ($to === InvoiceFiscalStatus::ValidatedAfterContingency
+                && $invoice->emission_mode === InvoiceEmissionMode::ManualCafc
+                && $invoice->issuance_notified_at === null) {
+                $invoice->loadMissing('customer');
+                if (filled($invoice->customer?->email)) {
+                    SendInvoiceCustomerNotificationJob::dispatch(
+                        (int) $invoice->id,
+                        InvoiceCustomerNotificationType::Issued,
+                    )->afterCommit();
+                }
+            }
         }
     }
 
@@ -688,6 +702,18 @@ final class InvoicePackageService
                 'message' => $message,
             ])->save();
             $this->recordTransition($invoice, $from, $to, $attempt, $message);
+
+            if ($to === InvoiceFiscalStatus::ValidatedAfterContingency
+                && $invoice->emission_mode === InvoiceEmissionMode::ManualCafc
+                && $invoice->issuance_notified_at === null) {
+                $invoice->loadMissing('customer');
+                if (filled($invoice->customer?->email)) {
+                    SendInvoiceCustomerNotificationJob::dispatch(
+                        (int) $invoice->id,
+                        InvoiceCustomerNotificationType::Issued,
+                    )->afterCommit();
+                }
+            }
         }
     }
 

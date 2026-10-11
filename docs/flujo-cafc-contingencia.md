@@ -7,6 +7,7 @@ En Contingencias 2 el orden es:
 3. Obtener la aceptación y código de recepción del evento.
 4. Registrar y transcribir todas las facturas físicas, conservando sus números y fechas originales.
 5. Finalizar el CAFC y enviar los paquetes. Finalizar bloquea nuevas reservas; no se envía automáticamente al transcribir la primera factura.
+6. Cuando el SIN valida cada factura del paquete, encolar el correo de emisión al cliente con PDF y XML. Se utiliza el correo registrado del cliente; las facturas pendientes, observadas o rechazadas no generan este correo. Las facturas con correo de emisión ya enviado no se vuelven a notificar al reintentar.
 
 ## Controles
 
