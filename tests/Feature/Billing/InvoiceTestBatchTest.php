@@ -35,10 +35,12 @@ use App\Services\Billing\SequentialCafcTestPeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Spatie\Permission\Models\Permission;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class InvoiceTestBatchTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     private Company $company;

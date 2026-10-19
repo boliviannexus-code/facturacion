@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Siat;
 
 use App\Enums\SiatCommunicationOutcome;
+use App\Enums\SiatEnvironment;
 use App\Enums\SiatErrorType;
 use App\Enums\SiatOperation;
 use App\Models\SinApiToken;
@@ -15,6 +16,7 @@ use App\Services\Siat\Contracts\SiatCommunicationClient;
 use App\Services\Siat\Contracts\SiatDelay;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class SiatCommunicationService
@@ -32,6 +34,7 @@ class SiatCommunicationService
         SinApiToken $configuration,
         ?SinPointOfSale $pointOfSale = null,
         ?User $user = null,
+        ?SiatEnvironment $environment = null,
     ): SiatHealthCheckResult|SiatCommunicationResult {
         $startedAt = microtime(true);
         $knownToken = $this->tokenValue($configuration);
@@ -68,6 +71,18 @@ class SiatCommunicationService
             );
         }
 
+        try {
+            $environment ??= app(SiatWsdlResolver::class)->currentEnvironment((int) $configuration->company_id);
+            $resolvedWsdl = app(SiatWsdlResolver::class)->resolve((int) $configuration->company_id, $environment, 'codes');
+        } catch (ValidationException $exception) {
+            return $this->finish(
+                configuration: $configuration, pointOfSale: $pointOfSale, user: $user,
+                errorType: SiatErrorType::LocalConfiguration, technicalMessage: $exception->getMessage(),
+                response: null, attempts: 1, requestDurationMs: 0, attemptErrors: [SiatErrorType::LocalConfiguration],
+                startedAt: $startedAt, knownToken: $knownToken,
+            );
+        }
+
         $attemptErrors = [];
         $attempts = 0;
         $requestDurationMs = 0;
@@ -85,7 +100,7 @@ class SiatCommunicationService
 
             try {
                 $response = $this->normalizeResponse(
-                    $this->client->verify($configuration, $this->retryPolicy->timeoutSeconds),
+                    $this->client->verify($configuration, $this->retryPolicy->timeoutSeconds, $environment),
                 );
                 $requestDurationMs = $this->durationMs($requestStartedAt);
                 $transaction = $this->findTransaction($response);
@@ -126,6 +141,7 @@ class SiatCommunicationService
             attemptErrors: $attemptErrors,
             startedAt: $startedAt,
             knownToken: $knownToken,
+            resolvedWsdl: $resolvedWsdl,
         );
     }
 
@@ -145,6 +161,7 @@ class SiatCommunicationService
         array $attemptErrors,
         float $startedAt,
         string $knownToken,
+        string $resolvedWsdl = '',
     ): SiatHealthCheckResult {
         $sanitizedResponse = $this->sanitizer->data($response, $knownToken);
         $sanitizedTechnicalMessage = $this->sanitizer->text($technicalMessage, $knownToken) ?? '';
@@ -158,7 +175,7 @@ class SiatCommunicationService
             userMessage: $userMessage,
             technicalMessage: $sanitizedTechnicalMessage,
             operation: 'verificarComunicacion',
-            wsdlUrl: $this->sanitizer->text((string) $configuration->wsdl_url, $knownToken) ?? '',
+            wsdlUrl: $this->sanitizer->text($resolvedWsdl, $knownToken) ?? '',
             durationMs: $this->durationMs($startedAt),
             requestDurationMs: $requestDurationMs,
             attempts: $attempts,
@@ -206,6 +223,7 @@ class SiatCommunicationService
 
         SinCommunicationLog::query()->create([
             'company_id' => $companyId,
+            'environment_code' => SiatWsdlRegistry::environmentForUrl($result->wsdlUrl),
             'sin_branch_id' => $pointOfSale?->sin_branch_id,
             'sin_point_of_sale_id' => $pointOfSale?->getKey(),
             'sin_api_token_id' => $configuration->getKey(),

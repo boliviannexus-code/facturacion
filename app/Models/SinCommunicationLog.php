@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SiatCommunicationOutcome;
+use App\Enums\SiatEnvironment;
 use App\Enums\SiatErrorType;
 use App\Enums\SiatFailureCategory;
 use App\Enums\SiatOperation;
@@ -22,7 +23,7 @@ class SinCommunicationLog extends Model implements Auditable
     use AuditsCompanyChanges, BelongsToCompany, HasFactory;
 
     protected $fillable = [
-        'company_id', 'sin_branch_id', 'sin_point_of_sale_id', 'sin_cuis_id',
+        'environment_code', 'company_id', 'sin_branch_id', 'sin_point_of_sale_id', 'sin_cuis_id',
         'sin_cufd_id', 'sin_api_token_id', 'user_id', 'operation', 'outcome',
         'failure_category', 'error_type', 'attempt_count', 'endpoint',
         'http_status_code', 'soap_fault_code', 'duration_ms',
@@ -33,6 +34,7 @@ class SinCommunicationLog extends Model implements Auditable
     protected function casts(): array
     {
         return [
+            'environment_code' => SiatEnvironment::class,
             'operation' => SiatOperation::class,
             'outcome' => SiatCommunicationOutcome::class,
             'error_type' => SiatErrorType::class,

@@ -80,8 +80,8 @@ class SignificantEventService
             ]);
         }
 
-        $apiToken = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        $apiToken = $this->apiTokens->current((int) $pointOfSale->company_id);
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
         $cuis = $this->cuisService->currentForPointOfSale($pointOfSale);
         $currentCufd = $this->cufdService->currentForPointOfSale($pointOfSale);
         $eventCufd = $this->cufdForEvent($pointOfSale, (string) $data['started_at']);
@@ -155,7 +155,7 @@ class SignificantEventService
         $pointOfSale = $invoice->pointOfSale;
         $cuis = $invoice->cuis;
         $cufd = $invoice->cufd;
-        $apiToken = SinApiToken::query()->find($invoice->sin_api_token_id);
+        $apiToken = SinApiToken::withoutGlobalScope('company')->where('company_id', $invoice->company_id)->find($invoice->sin_api_token_id);
 
         if (! $authorization || ! $pointOfSale?->branch || ! $cuis?->cuis_code || ! $cufd?->cufd_code || ! $apiToken) {
             throw ValidationException::withMessages([
@@ -181,6 +181,9 @@ class SignificantEventService
         $timezone = config('app.timezone', 'America/La_Paz');
         $startedAt = Carbon::parse((string) $data['started_at'])->setTimezone($timezone);
         $endedAt = Carbon::parse((string) $data['ended_at'])->setTimezone($timezone);
+
+        $authorization = clone $authorization;
+        $authorization->environment_code = $invoice?->environment_code ?? $eventCufd->environment_code;
 
         $payload = [
             'SolicitudEventoSignificativo' => [
@@ -224,10 +227,8 @@ class SignificantEventService
         $startedAt = microtime(true);
 
         try {
-            $operationsWsdl = SiatWsdlRegistry::relatedService(
-                (string) $apiToken->wsdl_url,
-                'FacturacionOperaciones',
-            );
+            $operationsWsdl = app(SiatWsdlResolver::class)->resolve((int) $pointOfSale->company_id, $authorization->environment_code, 'operations');
+            $event->update(['request_payload' => [...$payload, 'wsdl_url' => $operationsWsdl]]);
             $client = $this->clients->make($operationsWsdl, (string) $apiToken->api_token, 30);
             $response = $this->normalize($client->registroEventoSignificativo($payload));
             $transaccion = $this->findBoolean($response, 'transaccion') ?? false;
@@ -270,7 +271,9 @@ class SignificantEventService
         $eventStart = Carbon::parse($startedAt)->setTimezone(config('app.timezone', 'America/La_Paz'));
         $eventStartValue = $eventStart->format('Y-m-d H:i:s');
 
-        return SinCufd::query()
+        return SinCufd::query()->withoutGlobalScope('company')
+            ->where('company_id', $pointOfSale->company_id)
+            ->where('environment_code', app(SiatWsdlResolver::class)->currentEnvironment((int) $pointOfSale->company_id)->value)
             ->successful()
             ->where('sin_point_of_sale_id', $pointOfSale->id)
             ->where('requested_at', '<=', $eventStartValue)

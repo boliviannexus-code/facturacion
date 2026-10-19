@@ -45,7 +45,7 @@ final class SiatPointOfSaleService
 
         try {
             $response = $this->clients
-                ->make($this->operationsWsdl($token), (string) $token->api_token)
+                ->make(app(SiatWsdlResolver::class)->resolve((int) $branch->company_id, $authorization->environment_code, 'operations'), (string) $token->api_token)
                 ->registroPuntoVenta([
                     'SolicitudRegistroPuntoVenta' => [
                         'codigoAmbiente' => $authorization->environment_code->value,
@@ -103,7 +103,7 @@ final class SiatPointOfSaleService
 
         try {
             $response = $this->clients
-                ->make($this->operationsWsdl($token), (string) $token->api_token)
+                ->make(app(SiatWsdlResolver::class)->resolve((int) $branch->company_id, $authorization->environment_code, 'operations'), (string) $token->api_token)
                 ->consultaPuntoVenta([
                     'SolicitudConsultaPuntoVenta' => [
                         'codigoAmbiente' => $authorization->environment_code->value,
@@ -177,8 +177,8 @@ final class SiatPointOfSaleService
      */
     private function credentials(SinBranch $branch): array
     {
-        $token = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        $token = $this->apiTokens->current((int) $branch->company_id);
+        $authorization = $this->authorizations->current((int) $branch->company_id);
         $messages = [];
 
         if (! $token || $token->status_label !== 'Vigente') {
@@ -189,7 +189,8 @@ final class SiatPointOfSaleService
             $messages['authorization'] = 'Configura la autorización SIN y el código de sistema antes de continuar.';
         }
 
-        $cuis = SinCuis::query()
+        $cuis = SinCuis::query()->withoutGlobalScope('company')->where('company_id', $branch->company_id)
+            ->when($authorization, fn ($query) => $query->where('environment_code', $authorization->environment_code->value))
             ->usable()
             ->where('sin_branch_id', $branch->id)
             ->where('point_of_sale_code', 0)
@@ -205,11 +206,6 @@ final class SiatPointOfSaleService
         }
 
         return [$token, $authorization, $cuis];
-    }
-
-    private function operationsWsdl(SinApiToken $token): string
-    {
-        return SiatWsdlRegistry::relatedService((string) $token->wsdl_url, 'FacturacionOperaciones');
     }
 
     /** @return array<string, mixed> */

@@ -3,9 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\SinApiToken;
-use App\Services\Siat\SiatWsdlRegistry;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SaveSinApiTokenRequest extends FormRequest
 {
@@ -21,7 +19,7 @@ class SaveSinApiTokenRequest extends FormRequest
 
         return [
             'api_token' => [$apiTokenRequired, 'string', 'max:4096'],
-            'wsdl_url' => ['required', 'string', 'url', 'max:2048', Rule::in($this->allowedWsdlUrls())],
+            'wsdl_url' => ['exclude'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],
         ];
@@ -31,9 +29,6 @@ class SaveSinApiTokenRequest extends FormRequest
     {
         return [
             'api_token.required' => 'Ingresa el token API devuelto por la plataforma de impuestos.',
-            'wsdl_url.required' => 'Selecciona el servicio WSDL de SIAT.',
-            'wsdl_url.url' => 'Selecciona una URL WSDL valida.',
-            'wsdl_url.in' => 'Selecciona uno de los servicios WSDL disponibles.',
             'starts_at.required' => 'Ingresa la fecha de inicio de vigencia.',
             'ends_at.required' => 'Ingresa la fecha de fin de vigencia.',
             'ends_at.after_or_equal' => 'La fecha fin debe ser igual o posterior a la fecha inicio.',
@@ -44,7 +39,7 @@ class SaveSinApiTokenRequest extends FormRequest
     {
         $data = [];
 
-        foreach (['api_token', 'wsdl_url', 'starts_at', 'ends_at'] as $field) {
+        foreach (['api_token', 'starts_at', 'ends_at'] as $field) {
             $value = $this->input($field);
             $data[$field] = is_string($value) ? trim($value) : $value;
         }
@@ -53,20 +48,6 @@ class SaveSinApiTokenRequest extends FormRequest
             $data['api_token'] = null;
         }
 
-        if ($data['wsdl_url'] === '') {
-            $data['wsdl_url'] = null;
-        }
-
         $this->merge($data);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function allowedWsdlUrls(): array
-    {
-        return (new SiatWsdlRegistry)->all()
-            ->pluck('url')
-            ->all();
     }
 }

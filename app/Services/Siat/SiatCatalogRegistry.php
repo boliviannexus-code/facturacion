@@ -69,7 +69,7 @@ class SiatCatalogRegistry
             'key' => $key,
             'name' => $name,
             'operation' => $operation,
-            'wsdl_url' => SiatWsdlRegistry::SYNCHRONIZATION,
+            'wsdl_url' => '',
             'hint' => $hint,
         ];
     }

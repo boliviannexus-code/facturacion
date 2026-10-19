@@ -13,10 +13,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 class SiatCommunicationTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_siat_communication_menu_and_page_are_available_to_company_users(): void

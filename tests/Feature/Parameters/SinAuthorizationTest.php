@@ -242,11 +242,12 @@ class SinAuthorizationTest extends TestCase
     public function test_database_constraints_protect_authorization_integrity(): void
     {
         $indexes = DB::table('pg_indexes')
+            ->whereRaw('schemaname = current_schema()')
             ->where('tablename', 'sin_authorizations')
             ->where('indexname', 'sin_authorizations_company_id_unique')
             ->count();
 
-        $constraints = DB::table('pg_constraint')
+        $constraints = DB::table('pg_constraint')->whereRaw('connamespace = current_schema()::regnamespace')
             ->whereIn('conname', [
                 'sin_authorizations_tax_id_digits_check',
                 'sin_authorizations_required_text_not_blank_check',

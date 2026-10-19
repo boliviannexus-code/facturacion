@@ -27,10 +27,12 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class SiatContingencySchemaTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_contingency_tables_and_explicit_columns_exist(): void

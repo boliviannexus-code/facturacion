@@ -4,7 +4,6 @@ namespace App\Services\Siat;
 
 use App\Models\SinWsdlService;
 use App\Support\CompanyContext;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 class SiatWsdlRegistry
@@ -21,50 +20,28 @@ class SiatWsdlRegistry
 
     public const PREVALUED_SDCF_INVOICE = 'https://pilotosiatservicios.impuestos.gob.bo/v2/ServicioFacturacionPrevalorada?wsdl';
 
-    public static function relatedService(string $configuredWsdl, string $service): string
+    public static function environmentForUrl(string $url): ?int
     {
-        $parts = parse_url(trim($configuredWsdl));
-
-        if (! is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
-            throw new \InvalidArgumentException('El WSDL configurado para SIAT no es válido.');
-        }
-
-        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
-        $path = (string) ($parts['path'] ?? '/v2/FacturacionCodigos');
-        $versionPath = preg_match('#^/v\d+/#', $path) === 1
-            ? preg_replace('#^(/v\d+/).*$#', '$1', $path)
-            : '/v2/';
-
-        return $parts['scheme'].'://'.$parts['host'].$port.$versionPath.$service.'?wsdl';
+        return match (strtolower((string) parse_url($url, PHP_URL_HOST))) {
+            'pilotosiatservicios.impuestos.gob.bo' => 2,
+            'siatrest.impuestos.gob.bo' => 1,
+            default => null,
+        };
     }
 
-    /**
-     * @return Collection<int, array{key: string, name: string, url: string}>
-     */
-    public function all(): Collection
+    public static function validUrl(string $url, int $environment): bool
     {
-        $companyId = CompanyContext::id();
+        $parts = parse_url($url);
 
-        if ($companyId !== null && Schema::hasTable('sin_wsdl_services')) {
-            $this->ensureDefaults();
-
-            return SinWsdlService::query()
-                ->where('is_active', true)
-                ->orderBy('category')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (SinWsdlService $service): array => [
-                    'key' => $service->key,
-                    'name' => $service->name,
-                    'url' => $service->url,
-                ]);
-        }
-
-        return collect(self::defaults())->map(fn (array $service): array => [
-            'key' => $service['key'],
-            'name' => $service['name'],
-            'url' => $service['url'],
-        ]);
+        return strlen($url) <= 1000
+            && is_array($parts)
+            && ($parts['scheme'] ?? '') === 'https'
+            && ! isset($parts['user']) && ! isset($parts['pass'])
+            && ! isset($parts['fragment'])
+            && (! isset($parts['port']) || $parts['port'] === 443)
+            && self::environmentForUrl($url) === $environment
+            && preg_match('#^/(v[0-9]+|sfd)/[A-Za-z0-9]+$#', $parts['path'] ?? '') === 1
+            && strtolower($parts['query'] ?? '') === 'wsdl';
     }
 
     public function ensureDefaults(): void
@@ -75,23 +52,42 @@ class SiatWsdlRegistry
             return;
         }
 
-        $alreadyInitialized = SinWsdlService::query()
-            ->withoutGlobalScope('company')
-            ->withTrashed()
-            ->where('company_id', $companyId)
-            ->exists();
+        self::initializeCompany($companyId);
+    }
 
-        if ($alreadyInitialized) {
-            return;
+    public static function initializeCompany(int $companyId): void
+    {
+        foreach ([2, 1] as $environment) {
+            foreach (self::templates($environment) as $service) {
+                $exists = SinWsdlService::withoutGlobalScope('company')->withTrashed()
+                    ->where('company_id', $companyId)
+                    ->where(fn ($query) => $query->where('key', $service['key'])->orWhere('url', $service['url']))
+                    ->where(fn ($query) => $query->where('environment_code', $environment)->orWhereNull('environment_code'))
+                    ->exists();
+                if (! $exists) {
+                    SinWsdlService::withoutGlobalScope('company')->create([
+                        ...$service, 'company_id' => $companyId,
+                        'environment_code' => $environment, 'is_active' => $environment === 2,
+                    ]);
+                }
+            }
         }
+    }
 
-        foreach (self::defaults() as $service) {
-            SinWsdlService::query()->create([
-                ...$service,
-                'company_id' => $companyId,
-                'is_active' => true,
-            ]);
-        }
+    public static function templates(int $environment): array
+    {
+        $services = array_values(array_filter(self::defaults(), static fn (array $service): bool => $environment === 2 || $service['key'] !== 'prevalued_sdcf_invoice'));
+
+        return array_map(function (array $service) use ($environment): array {
+            if ($environment === 1) {
+                $service['url'] = str_replace('pilotosiatservicios.impuestos.gob.bo', 'siatrest.impuestos.gob.bo', $service['url']);
+                if ($service['key'] === 'zero_rate_invoice') {
+                    $service['url'] = 'https://siatrest.impuestos.gob.bo/v2/ServicioFacturacionComputarizada?wsdl';
+                }
+            }
+
+            return $service;
+        }, $services);
     }
 
     /**

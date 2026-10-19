@@ -40,15 +40,8 @@ class SinApiTokenTest extends TestCase
             ->assertOk()
             ->assertSee('Token API')
             ->assertSee('Token recibido')
-            ->assertSee('Servicio WSDL')
-            ->assertSee('Servicio de sincronizacion de datos')
-            ->assertSee(SiatWsdlRegistry::SYNCHRONIZATION)
-            ->assertSee('Servicio de operaciones')
-            ->assertSee(SiatWsdlRegistry::OPERATIONS)
-            ->assertSee('Servicio de obtencion de codigos')
-            ->assertSee(SiatWsdlRegistry::CODES)
-            ->assertSee('Factura compra-venta')
-            ->assertSee(SiatWsdlRegistry::PURCHASE_SALE_INVOICE)
+            ->assertSee('Servicios WSDL')
+            ->assertDontSee('name="wsdl_url"', false)
             ->assertSee('Fecha inicio')
             ->assertSee('Fecha fin');
     }
@@ -122,7 +115,7 @@ class SinApiTokenTest extends TestCase
         $apiToken->refresh();
 
         $this->assertSame('CURRENT-TOKEN-999', $apiToken->api_token);
-        $this->assertSame(SiatWsdlRegistry::OPERATIONS, $apiToken->wsdl_url);
+        $this->assertSame(SiatWsdlRegistry::CODES, $apiToken->wsdl_url);
         $this->assertSame('2026-07-30', $apiToken->starts_at->toDateString());
         $this->assertSame('2027-07-30', $apiToken->ends_at->toDateString());
     }
@@ -168,7 +161,6 @@ class SinApiTokenTest extends TestCase
             ->assertRedirect(route('sin-api-token.index'))
             ->assertSessionHasErrors([
                 'api_token',
-                'wsdl_url',
                 'starts_at',
             ]);
 
@@ -182,7 +174,7 @@ class SinApiTokenTest extends TestCase
                 'ends_at' => '2026-07-29',
             ])
             ->assertRedirect(route('sin-api-token.index'))
-            ->assertSessionHasErrors(['wsdl_url', 'ends_at']);
+            ->assertSessionHasErrors(['ends_at']);
 
         $this
             ->actingAs($user)
@@ -194,7 +186,9 @@ class SinApiTokenTest extends TestCase
                 'ends_at' => '2026-07-30',
             ])
             ->assertRedirect(route('sin-api-token.index'))
-            ->assertSessionHasErrors(['wsdl_url']);
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('sin_api_tokens', ['company_id' => $user->company_id, 'wsdl_url' => SiatWsdlRegistry::CODES]);
     }
 
     public function test_global_administrator_without_company_cannot_access_api_token_registration(): void
@@ -231,11 +225,12 @@ class SinApiTokenTest extends TestCase
     public function test_database_constraints_protect_api_token_integrity(): void
     {
         $indexes = DB::table('pg_indexes')
+            ->whereRaw('schemaname = current_schema()')
             ->where('tablename', 'sin_api_tokens')
             ->where('indexname', 'sin_api_tokens_company_id_unique')
             ->count();
 
-        $constraints = DB::table('pg_constraint')
+        $constraints = DB::table('pg_constraint')->whereRaw('connamespace = current_schema()::regnamespace')
             ->whereIn('conname', [
                 'sin_api_tokens_required_text_not_blank_check',
                 'sin_api_tokens_wsdl_url_not_blank_check',

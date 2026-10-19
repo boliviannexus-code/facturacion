@@ -84,9 +84,9 @@ final readonly class InvoiceCancellationService
                 'company_id' => $locked->company_id, 'sin_invoice_issue_id' => $locked->id, 'user_id' => $actor->id,
                 'idempotency_key' => (string) Str::uuid(), 'operation' => SiatOperation::CancelInvoice,
                 'attempt_number' => $number, 'attempt_status' => SiatAttemptStatus::Sending,
-                'endpoint' => 'purchase-sale-invoice/cancellation',
+                'endpoint' => app(InvoiceWsdlResolver::class)->resolve((int) $locked->document_sector_code, (int) $locked->company_id, $locked->environment_code),
                 'request_hash' => hash('sha256', $locked->cuf.'|'.$reasonCode),
-                'request_payload' => [
+                'request_payload' => ['environment_code' => $locked->environment_code->value,
                     'cuf' => $locked->cuf,
                     'codigoMotivo' => $reasonCode,
                     'sin_point_of_sale_id' => $pointOfSaleId,

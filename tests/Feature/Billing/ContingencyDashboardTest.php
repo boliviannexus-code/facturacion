@@ -40,10 +40,12 @@ use Illuminate\Validation\ValidationException;
 use Mockery\MockInterface;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class ContingencyDashboardTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     private Company $company;

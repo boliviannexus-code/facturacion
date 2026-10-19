@@ -33,10 +33,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 class ManualCafcModuleTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     private ManualCafcService $service;

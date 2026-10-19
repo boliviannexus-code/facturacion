@@ -14,10 +14,12 @@ use App\Services\Billing\PurchaseSaleInvoicePdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class InvoiceCustomerNotificationJobTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     protected function setUp(): void

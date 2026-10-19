@@ -19,9 +19,9 @@ class SinAuthorizationService
         private readonly SiatCredentialChangeService $credentialChanges,
     ) {}
 
-    public function current(): ?SinAuthorization
+    public function current(?int $companyId = null): ?SinAuthorization
     {
-        return SinAuthorization::query()->first();
+        return SinAuthorization::query()->when($companyId !== null, fn ($query) => $query->withoutGlobalScope('company')->where('company_id', $companyId))->first();
     }
 
     /**

@@ -14,10 +14,12 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 class SiatBranchTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_branch_menu_and_page_are_available_to_company_users(): void

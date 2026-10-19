@@ -25,10 +25,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Queue;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class SiatMonitoringTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     protected function setUp(): void

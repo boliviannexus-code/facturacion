@@ -20,10 +20,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 class SiatCatalogTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_catalog_menu_and_index_show_available_siat_catalogs(): void

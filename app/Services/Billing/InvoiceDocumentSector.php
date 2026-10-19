@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Billing;
 
-use App\Services\Siat\SiatWsdlRegistry;
 use InvalidArgumentException;
 
 final class InvoiceDocumentSector
@@ -64,15 +63,6 @@ final class InvoiceDocumentSector
         return match ($code) {
             self::PURCHASE_SALE => 1,
             self::ZERO_RATE => 2,
-            default => throw self::unsupported($code),
-        };
-    }
-
-    public static function defaultWsdl(int $code): string
-    {
-        return match ($code) {
-            self::PURCHASE_SALE => SiatWsdlRegistry::PURCHASE_SALE_INVOICE,
-            self::ZERO_RATE => SiatWsdlRegistry::ZERO_RATE_INVOICE,
             default => throw self::unsupported($code),
         };
     }

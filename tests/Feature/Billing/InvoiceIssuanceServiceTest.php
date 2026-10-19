@@ -38,11 +38,13 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 use Spatie\Permission\Models\Permission;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\Fakes\SequenceInvoiceSiatClient;
 use Tests\TestCase;
 
 final class InvoiceIssuanceServiceTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     protected function setUp(): void

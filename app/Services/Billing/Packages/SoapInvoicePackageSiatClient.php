@@ -144,7 +144,7 @@ final readonly class SoapInvoicePackageSiatClient implements InvoicePackageSiatC
     {
         try {
             return $this->clients->make(
-                ($this->wsdls ?? new InvoiceWsdlResolver)->resolve((int) $package->document_sector_code, (int) $package->company_id),
+                ($this->wsdls ?? new InvoiceWsdlResolver)->resolve((int) $package->document_sector_code, (int) $package->company_id, $package->environment_code),
                 $token,
                 30,
             );

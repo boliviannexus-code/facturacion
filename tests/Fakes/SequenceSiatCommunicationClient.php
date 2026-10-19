@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
+use App\Enums\SiatEnvironment;
 use App\Models\SinApiToken;
 use App\Services\Siat\Contracts\SiatCommunicationClient;
 use RuntimeException;
@@ -16,7 +17,7 @@ final class SequenceSiatCommunicationClient implements SiatCommunicationClient
     /** @param array<int, mixed> $responses */
     public function __construct(private array $responses) {}
 
-    public function verify(SinApiToken $configuration, int $timeoutSeconds): mixed
+    public function verify(SinApiToken $configuration, int $timeoutSeconds, ?SiatEnvironment $environment = null): mixed
     {
         $response = $this->responses[$this->calls] ?? new RuntimeException('No existe respuesta simulada.');
         $this->calls++;

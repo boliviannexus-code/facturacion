@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SiatEnvironment;
 use App\Models\Concerns\AuditsCompanyChanges;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,7 @@ final class SinWsdlService extends Model implements Auditable
 
     protected $fillable = [
         'company_id',
+        'environment_code',
         'key',
         'name',
         'category',
@@ -29,6 +31,7 @@ final class SinWsdlService extends Model implements Auditable
     {
         return [
             'is_active' => 'boolean',
+            'environment_code' => SiatEnvironment::class,
         ];
     }
 

@@ -13,7 +13,6 @@
                     : route('sin-api-token.store'),
                 'method' => $apiToken ? 'PUT' : 'POST',
                 'apiToken' => $apiToken,
-                'wsdlOptions' => $wsdlOptions,
             ])
         @endcan
 
@@ -30,8 +29,6 @@
                         <dt>Token API</dt>
                         <dd><span class="authorization-secret">{{ $apiToken->masked_api_token }}</span></dd>
 
-                        <dt>WSDL</dt>
-                        <dd>{{ $apiToken->wsdl_url }}</dd>
 
                         <dt>Inicio</dt>
                         <dd>{{ $apiToken->starts_at?->format('d/m/Y') ?? '-' }}</dd>

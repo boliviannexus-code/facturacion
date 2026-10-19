@@ -25,6 +25,8 @@ final readonly class SiatRecoveryCufdProvider implements RecoveryCufdProvider
         SinCuis $cuis,
     ): CufdAcquisitionResult {
         try {
+            $authorization = clone $authorization;
+            $authorization->environment_code = $cuis->environment_code;
             $cufd = $this->cufdService->requestWithConfiguration(
                 $actor,
                 $pointOfSale,

@@ -1,7 +1,5 @@
 @php
     $apiToken ??= null;
-    $wsdlOptions ??= collect();
-    $defaultWsdlUrl = data_get($wsdlOptions->firstWhere('key', 'codes'), 'url', 'https://pilotosiatservicios.impuestos.gob.bo/v2/FacturacionCodigos?wsdl');
 @endphp
 
 <x-ui.form-panel :action="$action" :method="$method">
@@ -39,42 +37,7 @@
         </div>
     </section>
 
-    <section class="authorization-form-section" aria-labelledby="api-token-service-heading">
-        <div class="authorization-form-section-header">
-            <span class="authorization-form-section-icon" aria-hidden="true"><i class="ti ti-link"></i></span>
-            <div>
-                <h2 class="authorization-form-section-title" id="api-token-service-heading">Servicio SIAT</h2>
-            </div>
-        </div>
-
-        <div class="row g-3">
-            <div class="col-12">
-                <label class="form-label" for="api-token-wsdl-url">Servicio WSDL</label>
-                <select
-                    class="form-control @error('wsdl_url') is-invalid @enderror"
-                    id="api-token-wsdl-url"
-                    name="wsdl_url"
-                    required
-                >
-                    @foreach ($wsdlOptions as $option)
-                        <option value="{{ $option['url'] }}" @selected(old('wsdl_url', $apiToken?->wsdl_url ?? $defaultWsdlUrl) === $option['url'])>
-                            {{ $option['name'] }} - {{ $option['url'] }}
-                        </option>
-                    @endforeach
-                </select>
-                @if ($wsdlOptions->isNotEmpty())
-                    <div class="form-hint">
-                        @foreach ($wsdlOptions as $option)
-                            <div><span class="fw-semibold">{{ $option['name'] }}:</span> {{ $option['url'] }}</div>
-                        @endforeach
-                    </div>
-                @endif
-                @error('wsdl_url')
-                    <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
-            </div>
-        </div>
-    </section>
+    <p class="text-body-secondary">Los servicios se configuran por empresa y ambiente en <a href="{{ route('siat.wsdl-services.index') }}">Servicios WSDL</a>.</p>
 
     <section class="authorization-form-section" aria-labelledby="api-token-validity-heading">
         <div class="authorization-form-section-header">

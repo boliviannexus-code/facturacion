@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Models\SinWsdlService;
+use App\Services\Siat\SiatWsdlRegistry;
 use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,6 +28,7 @@ final class SaveSinWsdlServiceRequest extends FormRequest
         $companyId = CompanyContext::id($this->user());
 
         return [
+            'environment_code' => ['required', Rule::in([1, 2])],
             'key' => [
                 'required',
                 'string',
@@ -34,6 +36,7 @@ final class SaveSinWsdlServiceRequest extends FormRequest
                 'regex:/^[a-z0-9_]+$/',
                 Rule::unique('sin_wsdl_services', 'key')
                     ->where('company_id', $companyId)
+                    ->where('environment_code', $this->integer('environment_code'))->whereNull('deleted_at')
                     ->ignore($service),
             ],
             'name' => ['required', 'string', 'max:255'],
@@ -42,9 +45,15 @@ final class SaveSinWsdlServiceRequest extends FormRequest
                 'required',
                 'url',
                 'starts_with:https://',
-                'max:2048',
+                'max:1000',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! SiatWsdlRegistry::validUrl((string) $value, $this->integer('environment_code'))) {
+                        $fail('Selecciona una URL WSDL oficial del SIN que corresponda al ambiente indicado.');
+                    }
+                },
                 Rule::unique('sin_wsdl_services', 'url')
                     ->where('company_id', $companyId)
+                    ->where('environment_code', $this->integer('environment_code'))->whereNull('deleted_at')
                     ->ignore($service),
             ],
             'description' => ['nullable', 'string', 'max:1000'],

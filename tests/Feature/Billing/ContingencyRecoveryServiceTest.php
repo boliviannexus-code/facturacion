@@ -6,6 +6,7 @@ namespace Tests\Feature\Billing;
 
 use App\Enums\InvoiceFiscalStatus;
 use App\Enums\SiatAttemptStatus;
+use App\Enums\SiatEnvironment;
 use App\Enums\SiatErrorType;
 use App\Enums\SiatOperation;
 use App\Enums\SignificantEventStatus;
@@ -35,12 +36,14 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\Fakes\SequenceRecoveryCufdProvider;
 use Tests\Fakes\SequenceSignificantEventRegistrar;
 use Tests\TestCase;
 
 final class ContingencyRecoveryServiceTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -390,6 +393,19 @@ final class ContingencyRecoveryServiceTest extends TestCase
     }
 
     /** @return array<string, mixed> */
+    public function test_historical_event_registration_uses_its_cufd_environment_after_authorization_changes(): void
+    {
+        $context = $this->recoveredContext();
+        $context['authorization']->update(['environment_code' => SiatEnvironment::Production]);
+        [, $registrar] = $this->simulateRegistration($context, [$this->accepted('HISTORICAL-PILOT')]);
+
+        $result = app(ContingencyRecoveryService::class)->registerRecoveredEvent($context['event'], $context['user']);
+
+        self::assertTrue($result->registered);
+        self::assertSame(2, $registrar->requests[0]->environmentCode);
+        self::assertSame('https://pilotosiatservicios.impuestos.gob.bo/v2/FacturacionOperaciones?wsdl', $registrar->requests[0]->operationsWsdl);
+    }
+
     private function context(): array
     {
         $company = Company::factory()->create();

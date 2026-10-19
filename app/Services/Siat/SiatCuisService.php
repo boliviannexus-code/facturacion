@@ -32,7 +32,14 @@ class SiatCuisService
 
     public function currentForPointOfSale(SinPointOfSale $pointOfSale): ?SinCuis
     {
-        $cuis = SinCuis::query()
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
+        if (! $authorization) {
+            return null;
+        }
+
+        $cuis = SinCuis::query()->withoutGlobalScope('company')
+            ->where('company_id', $pointOfSale->company_id)
+            ->where('environment_code', $authorization->environment_code->value)
             ->usable()
             ->where(function ($query) use ($pointOfSale): void {
                 $query
@@ -82,10 +89,15 @@ class SiatCuisService
             ]);
         }
 
-        $apiToken = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        if ((int) $pointOfSale->company_id !== $companyId) {
+            throw ValidationException::withMessages(['sin_point_of_sale_id' => 'El punto de venta pertenece a otra empresa.']);
+        }
+
+        $apiToken = $this->apiTokens->current((int) $pointOfSale->company_id);
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
 
         $this->ensureReady($apiToken, $authorization, $pointOfSale);
+        $wsdlUrl = app(SiatWsdlResolver::class)->resolve((int) $authorization->company_id, $authorization->environment_code, 'codes');
 
         $startedAt = microtime(true);
 
@@ -100,11 +112,12 @@ class SiatCuisService
                 'La extension SOAP de PHP no esta disponible en el servidor.',
                 null,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         }
 
         try {
-            $client = $this->clients->make(SiatWsdlRegistry::CODES, (string) $apiToken->api_token);
+            $client = $this->clients->make($wsdlUrl, (string) $apiToken->api_token);
             $response = $client->cuis($this->payload($authorization, $pointOfSale));
             $responseData = $this->normalizeResponse($response);
             $siatTransaction = $this->findTransaction($responseData) ?? false;
@@ -128,6 +141,7 @@ class SiatCuisService
                 $this->messageFor($siatTransaction, $responseData),
                 $responseData,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         } catch (Throwable $exception) {
             return $this->storeAttempt(
@@ -140,6 +154,7 @@ class SiatCuisService
                 'No se pudo solicitar CUIS: '.Str::limit($exception->getMessage(), 280),
                 null,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         }
     }
@@ -154,9 +169,14 @@ class SiatCuisService
             ]);
         }
 
-        $apiToken = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        if ((int) $pointOfSale->company_id !== $companyId) {
+            throw ValidationException::withMessages(['sin_point_of_sale_id' => 'El punto de venta pertenece a otra empresa.']);
+        }
+
+        $apiToken = $this->apiTokens->current((int) $pointOfSale->company_id);
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
         $this->ensureReady($apiToken, $authorization, $pointOfSale);
+        $wsdlUrl = app(SiatWsdlResolver::class)->resolve((int) $authorization->company_id, $authorization->environment_code, 'codes');
 
         return $this->storeAttempt(
             $companyId,
@@ -168,6 +188,7 @@ class SiatCuisService
             'CUIS existente importado durante la recuperación de la base de datos.',
             ['source' => 'manual_database_recovery'],
             0,
+            $wsdlUrl,
         );
     }
 
@@ -224,6 +245,7 @@ class SiatCuisService
         string $message,
         ?array $response,
         int $durationMs,
+        string $wsdlUrl,
     ): SinCuis {
         return SinCuis::query()->create([
             'company_id' => $companyId,
@@ -232,7 +254,7 @@ class SiatCuisService
             'sin_branch_id' => $pointOfSale->branch->id,
             'sin_point_of_sale_id' => $pointOfSale->id,
             'tax_id' => $authorization->tax_id,
-            'wsdl_url' => SiatWsdlRegistry::CODES,
+            'wsdl_url' => $wsdlUrl,
             'environment_code' => $authorization->environment_code,
             'modality_code' => $authorization->modality_code,
             'branch_code' => $pointOfSale->branch->branch_code,

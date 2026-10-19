@@ -8,6 +8,7 @@ use App\Enums\SiatErrorType;
 use App\Jobs\VerifySiatCommunicationJob;
 use App\Models\Company;
 use App\Models\SinApiToken;
+use App\Models\SinAuthorization;
 use App\Models\SinCommunicationLog;
 use App\Models\SinPointOfSale;
 use App\Models\User;
@@ -17,12 +18,14 @@ use App\Services\Siat\SiatCommunicationService;
 use App\Services\Siat\SiatRetryPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\Fakes\RecordingSiatDelay;
 use Tests\Fakes\SequenceSiatCommunicationClient;
 use Tests\TestCase;
 
 final class SiatCommunicationModuleTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_health_check_persists_duration_and_multi_company_context(): void
@@ -97,6 +100,7 @@ final class SiatCommunicationModuleTest extends TestCase
     private function context(): array
     {
         $company = Company::factory()->create();
+        SinAuthorization::factory()->create(['company_id' => $company->id]);
         $user = User::factory()->create(['company_id' => $company->id]);
         $pointOfSale = SinPointOfSale::factory()->create(['company_id' => $company->id]);
         $token = SinApiToken::factory()->create(['company_id' => $company->id]);

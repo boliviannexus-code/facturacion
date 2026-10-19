@@ -657,9 +657,9 @@ final class InvoicePackageService
                 'operation' => $operation,
                 'attempt_number' => $attemptNumber,
                 'attempt_status' => SiatAttemptStatus::Sending,
-                'endpoint' => 'purchase-sale-invoice',
+                'endpoint' => app(InvoiceWsdlResolver::class)->resolve((int) $locked->document_sector_code, (int) $locked->company_id, $locked->environment_code),
                 'request_hash' => $locked->file_hash,
-                'request_payload' => [
+                'request_payload' => ['environment_code' => $locked->environment_code->value,
                     'package_key' => $locked->package_key,
                     'invoice_count' => $locked->invoice_count,
                     'file_hash' => $locked->file_hash,

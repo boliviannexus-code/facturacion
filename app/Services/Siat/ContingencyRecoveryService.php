@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Siat;
 
 use App\Enums\SiatAttemptStatus;
-use App\Enums\SiatEnvironment;
 use App\Enums\SiatMessageSeverity;
 use App\Enums\SiatOperation;
 use App\Enums\SignificantEventStatus;
@@ -24,6 +23,7 @@ use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use OwenIt\Auditing\Models\Audit;
 use Throwable;
 
@@ -136,13 +136,13 @@ final class ContingencyRecoveryService
             );
         }
 
-        $event->loadMissing(['apiToken', 'pointOfSale.branch']);
+        $event->loadMissing(['apiToken', 'pointOfSale.branch', 'cufd']);
 
-        if (! $event->apiToken || ! $event->pointOfSale) {
-            return $this->markForReview($event, $actor, 'Falta el token o el punto de venta requerido para verificar la recuperacion.');
+        if (! $event->apiToken || ! $event->pointOfSale || ! $event->cufd) {
+            return $this->markForReview($event, $actor, 'Falta el token, el punto de venta o el CUFD histórico requerido para verificar la recuperacion.');
         }
 
-        $health = $this->communication->verify($event->apiToken, $event->pointOfSale, $actor);
+        $health = $this->communication->verify($event->apiToken, $event->pointOfSale, $actor, $event->cufd->environment_code);
 
         if (! $health->ok) {
             return $this->result(
@@ -285,23 +285,17 @@ final class ContingencyRecoveryService
             );
         }
 
-        if ($event->authorization->environment_code === SiatEnvironment::Production
-            && str_contains(mb_strtolower((string) $event->apiToken->wsdl_url), 'pilotosiat')) {
-            return $this->markForReview(
-                $event,
-                $actor,
-                'Registro bloqueado: la autorización está en Producción, pero el WSDL configurado pertenece al ambiente Piloto.',
-                retryable: false,
-            );
+        $environment = $event->cufd->environment_code;
+        try {
+            $operationsWsdl = app(SiatWsdlResolver::class)->resolve((int) $event->company_id, $environment, 'operations');
+        } catch (ValidationException $exception) {
+            return $this->markForReview($event, $actor, $exception->getMessage(), retryable: false);
         }
 
         $request = new SignificantEventRegistrationRequest(
             apiToken: (string) $event->apiToken->api_token,
-            operationsWsdl: SiatWsdlRegistry::relatedService(
-                (string) $event->apiToken->wsdl_url,
-                'FacturacionOperaciones',
-            ),
-            environmentCode: (int) $event->authorization->environment_code->value,
+            operationsWsdl: $operationsWsdl,
+            environmentCode: $environment->value,
             eventCode: (int) $event->event_code,
             pointOfSaleCode: (int) $event->pointOfSale->point_of_sale_code,
             systemCode: (string) $event->authorization->system_code,

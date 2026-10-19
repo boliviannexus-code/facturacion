@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\SinApiToken;
 use App\Models\User;
 use App\Services\Siat\SiatCredentialChangeService;
+use App\Services\Siat\SiatWsdlRegistry;
 use App\Support\CompanyContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
@@ -17,9 +18,9 @@ class SinApiTokenService
         private readonly SiatCredentialChangeService $credentialChanges,
     ) {}
 
-    public function current(): ?SinApiToken
+    public function current(?int $companyId = null): ?SinApiToken
     {
-        return SinApiToken::query()->first();
+        return SinApiToken::query()->when($companyId !== null, fn ($query) => $query->withoutGlobalScope('company')->where('company_id', $companyId))->first();
     }
 
     public function save(User $user, array $data): SinApiToken
@@ -74,6 +75,9 @@ class SinApiTokenService
 
                 return $apiToken->refresh();
             }
+
+            // Kept solely for database compatibility; routing never reads this field.
+            $data['wsdl_url'] ??= SiatWsdlRegistry::CODES;
 
             return SinApiToken::query()->create($data);
         });

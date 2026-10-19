@@ -63,9 +63,9 @@ final readonly class InvoiceCancellationReversalService
                 'company_id' => $locked->company_id, 'sin_invoice_issue_id' => $locked->id, 'user_id' => $actor->id,
                 'idempotency_key' => (string) Str::uuid(), 'operation' => SiatOperation::ReverseCancellation,
                 'attempt_number' => (int) $locked->attempts()->max('attempt_number') + 1,
-                'attempt_status' => SiatAttemptStatus::Sending, 'endpoint' => 'purchase-sale-invoice/cancellation-reversal',
+                'attempt_status' => SiatAttemptStatus::Sending, 'endpoint' => app(InvoiceWsdlResolver::class)->resolve((int) $locked->document_sector_code, (int) $locked->company_id, $locked->environment_code),
                 'request_hash' => hash('sha256', $locked->cuf.'|REVERSAL'),
-                'request_payload' => ['cuf' => $locked->cuf, 'sin_point_of_sale_id' => $pointOfSaleId], 'started_at' => now(),
+                'request_payload' => ['environment_code' => $locked->environment_code->value, 'cuf' => $locked->cuf, 'sin_point_of_sale_id' => $pointOfSaleId], 'started_at' => now(),
             ]);
             $locked->forceFill([
                 'fiscal_status' => InvoiceFiscalStatus::ReversalPending, 'status_label' => 'Reversión pendiente',

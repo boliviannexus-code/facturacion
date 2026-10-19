@@ -20,10 +20,12 @@ use App\Services\Billing\InvoiceSiatResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class InvoiceCancellationServiceTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_cancels_valid_invoice_individually_and_notifies_buyer(): void

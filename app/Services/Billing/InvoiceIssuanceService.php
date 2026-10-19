@@ -393,6 +393,7 @@ class InvoiceIssuanceService
 
         $cuis = SinCuis::query()->withoutGlobalScope('company')
             ->usable()
+            ->where('environment_code', $authorization->environment_code->value)
             ->where('company_id', $sale->company_id)
             ->where('sin_point_of_sale_id', $sale->sin_point_of_sale_id)
             ->latest('requested_at')
@@ -404,11 +405,18 @@ class InvoiceIssuanceService
 
         $cufd = SinCufd::query()->withoutGlobalScope('company')
             ->usable()
+            ->where('environment_code', $authorization->environment_code->value)
             ->where('company_id', $sale->company_id)
             ->where('sin_point_of_sale_id', $sale->sin_point_of_sale_id)
             ->where('expires_at', '>', $sale->issued_at)
             ->latest('requested_at')
             ->first();
+
+        try {
+            app(InvoiceWsdlResolver::class)->resolve((int) $sale->document_sector_code, (int) $sale->company_id, $authorization->environment_code);
+        } catch (ValidationException $exception) {
+            return $exception->getMessage();
+        }
 
         return [$token, $authorization, $cuis, $cufd];
     }
@@ -660,9 +668,9 @@ class InvoiceIssuanceService
                 'operation' => SiatOperation::ReceiveInvoice,
                 'attempt_number' => $existing ? $existing->attempt_number + 1 : 1,
                 'attempt_status' => SiatAttemptStatus::Sending,
-                'endpoint' => InvoiceDocumentSector::wsdlKey((int) $locked->document_sector_code),
+                'endpoint' => app(InvoiceWsdlResolver::class)->resolve((int) $locked->document_sector_code, (int) $locked->company_id, $locked->environment_code),
                 'request_hash' => $correctedArtifact['hash'] ?? $locked->hash_file,
-                'request_payload' => ['cuf' => $locked->cuf, 'hash' => $correctedArtifact['hash'] ?? $locked->hash_file, ...$correctedArtifact],
+                'request_payload' => ['environment_code' => $locked->environment_code->value, 'cuf' => $locked->cuf, 'hash' => $correctedArtifact['hash'] ?? $locked->hash_file, ...$correctedArtifact],
                 'started_at' => now(),
             ]);
         });

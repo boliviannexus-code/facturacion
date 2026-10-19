@@ -9,22 +9,15 @@ use PHPUnit\Framework\TestCase;
 
 final class SiatWsdlRegistryTest extends TestCase
 {
-    public function test_related_service_preserves_the_configured_environment_host(): void
+    public function test_accepts_only_official_hosts_matching_the_environment_and_preserves_paths(): void
     {
-        self::assertSame(
-            'https://siat-production.example/v2/FacturacionOperaciones?wsdl',
-            SiatWsdlRegistry::relatedService(
-                'https://siat-production.example/v2/FacturacionCodigos?wsdl',
-                'FacturacionOperaciones',
-            ),
-        );
-
-        self::assertSame(
-            'https://pilotosiatservicios.impuestos.gob.bo/v2/FacturacionOperaciones?wsdl',
-            SiatWsdlRegistry::relatedService(
-                SiatWsdlRegistry::CODES,
-                'FacturacionOperaciones',
-            ),
-        );
+        foreach (['v2', 'sfd'] as $path) {
+            self::assertTrue(SiatWsdlRegistry::validUrl("https://siatrest.impuestos.gob.bo/{$path}/FacturacionCodigos?wsdl", 1));
+        }
+        self::assertFalse(SiatWsdlRegistry::validUrl(SiatWsdlRegistry::CODES, 1));
+        self::assertTrue(SiatWsdlRegistry::validUrl(SiatWsdlRegistry::CODES, 2));
+        self::assertFalse(SiatWsdlRegistry::validUrl('https://external.test/v2/FacturacionCodigos?wsdl', 1));
+        self::assertFalse(SiatWsdlRegistry::validUrl('https://user@siatrest.impuestos.gob.bo/v2/FacturacionCodigos?wsdl', 1));
+        self::assertFalse(SiatWsdlRegistry::validUrl('http://siatrest.impuestos.gob.bo/v2/FacturacionCodigos?wsdl', 1));
     }
 }

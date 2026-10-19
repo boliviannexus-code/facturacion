@@ -28,7 +28,14 @@ class SiatCufdService
 
     public function currentForPointOfSale(SinPointOfSale $pointOfSale): ?SinCufd
     {
-        return SinCufd::query()
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
+        if (! $authorization) {
+            return null;
+        }
+
+        return SinCufd::query()->withoutGlobalScope('company')
+            ->where('company_id', $pointOfSale->company_id)
+            ->where('environment_code', $authorization->environment_code->value)
             ->current()
             ->where(function ($query) use ($pointOfSale): void {
                 $query
@@ -47,8 +54,8 @@ class SiatCufdService
 
     public function request(User $user, SinPointOfSale $pointOfSale): SinCufd
     {
-        $apiToken = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        $apiToken = $this->apiTokens->current((int) $pointOfSale->company_id);
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
         $currentCuis = $this->cuis->currentForPointOfSale($pointOfSale);
 
         if (! $apiToken || ! $authorization || ! $currentCuis) {
@@ -88,6 +95,7 @@ class SiatCufdService
         }
 
         $this->ensureReady($apiToken, $authorization, $pointOfSale, $currentCuis);
+        $wsdlUrl = app(SiatWsdlResolver::class)->resolve((int) $authorization->company_id, $authorization->environment_code, 'codes');
 
         $startedAt = microtime(true);
 
@@ -106,11 +114,12 @@ class SiatCufdService
                 'La extension SOAP de PHP no esta disponible en el servidor.',
                 null,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         }
 
         try {
-            $client = $this->clients->make(SiatWsdlRegistry::CODES, (string) $apiToken->api_token);
+            $client = $this->clients->make($wsdlUrl, (string) $apiToken->api_token);
             $response = $client->cufd($this->payload($authorization, $pointOfSale, $currentCuis));
             $responseData = $this->normalizeResponse($response);
             $transaccion = $this->findTransaction($responseData) ?? false;
@@ -133,6 +142,7 @@ class SiatCufdService
                 $this->messageFor($transaccion, $responseData),
                 $responseData,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         } catch (Throwable $exception) {
             return $this->storeAttempt(
@@ -149,6 +159,7 @@ class SiatCufdService
                 'No se pudo solicitar CUFD: '.Str::limit($exception->getMessage(), 280),
                 null,
                 $this->durationMs($startedAt),
+                $wsdlUrl,
             );
         }
     }
@@ -173,6 +184,10 @@ class SiatCufdService
 
         if (! $pointOfSale->is_active || ! $pointOfSale->branch?->is_active) {
             $messages['sin_point_of_sale_id'] = 'Selecciona una sucursal y punto de venta activos.';
+        }
+
+        if ($cuis && $authorization && $cuis->environment_code !== $authorization->environment_code) {
+            $messages['cuis'] = 'El CUIS pertenece a otro ambiente fiscal.';
         }
 
         if (! $cuis) {
@@ -219,6 +234,7 @@ class SiatCufdService
         string $message,
         ?array $response,
         int $durationMs,
+        string $wsdlUrl,
     ): SinCufd {
         return DB::transaction(function () use (
             $companyId,
@@ -234,6 +250,7 @@ class SiatCufdService
             $message,
             $response,
             $durationMs,
+            $wsdlUrl,
         ): SinCufd {
             if ($transaccion && filled($cufdCode)) {
                 SinCufd::query()
@@ -253,7 +270,7 @@ class SiatCufdService
                 'sin_point_of_sale_id' => $pointOfSale->id,
                 'sin_cuis_id' => $cuis->id,
                 'tax_id' => $authorization->tax_id,
-                'wsdl_url' => SiatWsdlRegistry::CODES,
+                'wsdl_url' => $wsdlUrl,
                 'environment_code' => $authorization->environment_code,
                 'modality_code' => $authorization->modality_code,
                 'branch_code' => $pointOfSale->branch->branch_code,

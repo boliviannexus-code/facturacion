@@ -19,10 +19,12 @@ use App\Services\Billing\InvoiceSiatResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\TestCase;
 
 final class InvoiceCancellationReversalServiceTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     public function test_reverses_cancellation_once_and_notifies_buyer(): void

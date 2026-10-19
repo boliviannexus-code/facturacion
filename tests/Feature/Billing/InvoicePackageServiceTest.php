@@ -45,11 +45,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\ConfiguresSiatWsdls;
 use Tests\Fakes\SequenceInvoicePackageSiatClient;
 use Tests\TestCase;
 
 final class InvoicePackageServiceTest extends TestCase
 {
+    use ConfiguresSiatWsdls;
     use RefreshDatabase;
 
     protected function setUp(): void

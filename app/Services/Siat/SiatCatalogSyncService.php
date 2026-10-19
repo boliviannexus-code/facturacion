@@ -73,11 +73,16 @@ class SiatCatalogSyncService
         }
 
         $catalog = $this->catalogs->find($catalogKey);
-        $apiToken = $this->apiTokens->current();
-        $authorization = $this->authorizations->current();
+        if ((int) $pointOfSale->company_id !== $companyId) {
+            throw ValidationException::withMessages(['sin_point_of_sale_id' => 'El punto de venta pertenece a otra empresa.']);
+        }
+
+        $apiToken = $this->apiTokens->current((int) $pointOfSale->company_id);
+        $authorization = $this->authorizations->current((int) $pointOfSale->company_id);
         $cuis = $this->cuis->currentForPointOfSale($pointOfSale);
 
         $this->ensureReady($apiToken, $authorization, $cuis, $pointOfSale);
+        $catalog['wsdl_url'] = app(SiatWsdlResolver::class)->resolve($companyId, $authorization->environment_code, 'synchronization');
 
         $startedAt = microtime(true);
 

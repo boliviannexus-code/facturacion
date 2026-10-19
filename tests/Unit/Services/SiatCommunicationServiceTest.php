@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services;
 
+use App\Enums\SiatEnvironment;
 use App\Enums\SiatErrorType;
 use App\Models\SinApiToken;
 use App\Services\Siat\SiatCommunicationService;
@@ -12,6 +13,7 @@ use App\Services\Siat\SiatErrorClassifier;
 use App\Services\Siat\SiatLogSanitizer;
 use App\Services\Siat\SiatRetryPolicy;
 use App\Services\Siat\SiatWsdlRegistry;
+use App\Services\Siat\SiatWsdlResolver;
 use RuntimeException;
 use Tests\Fakes\RecordingSiatDelay;
 use Tests\Fakes\SequenceSiatCommunicationClient;
@@ -19,6 +21,15 @@ use Tests\TestCase;
 
 final class SiatCommunicationServiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $resolver = \Mockery::mock(SiatWsdlResolver::class);
+        $resolver->shouldReceive('currentEnvironment')->andReturn(SiatEnvironment::TestingAndPilot);
+        $resolver->shouldReceive('resolve')->andReturn(SiatWsdlRegistry::CODES);
+        $this->app->instance(SiatWsdlResolver::class, $resolver);
+    }
+
     public function test_successful_communication_returns_on_first_attempt(): void
     {
         [$service, $client, $delay] = $this->service([

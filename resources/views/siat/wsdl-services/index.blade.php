@@ -5,6 +5,23 @@
 @section('page-subtitle', 'Administra los enlaces SOAP disponibles para infraestructura y documentos sector')
 
 @section('content')
+    @if ($errors->any())
+        <div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+    @endif
+
+    <form method="GET" action="{{ route('siat.wsdl-services.index') }}" class="mb-4">
+        <label class="form-label" for="wsdl-environment-filter">Ambiente de los servicios</label>
+        <div class="d-flex gap-2">
+            <select class="form-select" id="wsdl-environment-filter" name="environment_code">
+                <option value="2" @selected((string) $selectedEnvironment === '2')>Pruebas y Piloto</option>
+                <option value="1" @selected((string) $selectedEnvironment === '1')>Producción</option>
+                <option value="unclassified" @selected($selectedEnvironment === 'unclassified')>Sin clasificar</option>
+            </select>
+            <button class="btn btn-outline-primary" type="submit">Ver servicios</button>
+        </div>
+        <p class="form-hint">La autorización SIN determina el ambiente fiscal. Este filtro solo selecciona los servicios que estás administrando. Los servicios sin clasificar no se utilizan.</p>
+    </form>
+
     @can('sin-api-tokens.manage')
         <x-ui.form-panel :action="route('siat.wsdl-services.store')" method="POST">
             <section class="authorization-form-section" aria-labelledby="wsdl-create-heading">
@@ -12,11 +29,20 @@
                     <span class="authorization-form-section-icon" aria-hidden="true"><i class="ti ti-link-plus"></i></span>
                     <div>
                         <h2 class="authorization-form-section-title" id="wsdl-create-heading">Agregar servicio WSDL</h2>
-                        <p class="text-body-secondary mb-0">El enlace quedará disponible inmediatamente en la configuración del Token API.</p>
+                        <p class="text-body-secondary mb-0">El servicio se utilizará solo para esta empresa y el ambiente seleccionado. Producción requiere activación explícita.</p>
                     </div>
                 </div>
 
                 <div class="row g-3">
+                    <div class="col-lg-4">
+                        <label class="form-label" for="wsdl-environment">Ambiente</label>
+                        <select id="wsdl-environment" name="environment_code" class="form-select @error('environment_code') is-invalid @enderror" required>
+                            @foreach (\App\Enums\SiatEnvironment::options() as $code => $label)
+                                <option value="{{ $code }}" @selected((string) old('environment_code', $selectedEnvironment) === (string) $code)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('environment_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
                     <div class="col-lg-3">
                         <label class="form-label" for="wsdl-key">Clave interna</label>
                         <input class="form-control @error('key') is-invalid @enderror" id="wsdl-key" name="key" value="{{ old('key') }}" placeholder="factura_tasa_cero" maxlength="100" required>
@@ -35,7 +61,7 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label" for="wsdl-url">URL WSDL</label>
-                        <input class="form-control @error('url') is-invalid @enderror" id="wsdl-url" name="url" type="url" value="{{ old('url') }}" placeholder="https://.../ServicioFacturacion...?wsdl" maxlength="2048" required>
+                        <input class="form-control @error('url') is-invalid @enderror" id="wsdl-url" name="url" type="url" value="{{ old('url') }}" placeholder="https://.../ServicioFacturacion...?wsdl" maxlength="1000" required>
                     </div>
                     <div class="col-lg-9">
                         <label class="form-label" for="wsdl-description">Descripción</label>
@@ -43,7 +69,7 @@
                     </div>
                     <div class="col-lg-3 d-flex align-items-end">
                         <label class="form-check form-switch mb-2">
-                            <input class="form-check-input" name="is_active" type="checkbox" value="1" checked>
+                            <input class="form-check-input" name="is_active" type="checkbox" value="1" @checked((string) $selectedEnvironment === '2')>
                             <span class="form-check-label">Servicio activo</span>
                         </label>
                     </div>
@@ -63,6 +89,7 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
                             <h3 class="card-title mb-1">{{ $service->name }}</h3>
+                            <span class="badge bg-secondary-lt">{{ $service->environment_code?->label() ?? 'Sin clasificar' }}</span>
                             <span class="badge {{ $service->category === 'facturacion' ? 'bg-blue-lt' : 'bg-azure-lt' }}">{{ ucfirst($service->category) }}</span>
                             <span class="badge {{ $service->is_active ? 'bg-success-lt' : 'bg-secondary-lt' }}">{{ $service->is_active ? 'Activo' : 'Inactivo' }}</span>
                         </div>
@@ -73,10 +100,16 @@
                                 @csrf
                                 @method('PUT')
                                 <div class="row g-3">
+                                    <div class="col-lg-4"><label class="form-label" for="service-environment-{{ $service->id }}">Ambiente</label><select id="service-environment-{{ $service->id }}" class="form-select" name="environment_code" required>
+                                        <option value="">Selecciona un ambiente</option>
+                                        @foreach (\App\Enums\SiatEnvironment::options() as $code => $label)
+                                            <option value="{{ $code }}" @selected($service->environment_code?->value === $code)>{{ $label }}</option>
+                                        @endforeach
+                                    </select></div>
                                     <div class="col-lg-3"><label class="form-label">Clave</label><input class="form-control" name="key" value="{{ $service->key }}" maxlength="100" required></div>
                                     <div class="col-lg-5"><label class="form-label">Nombre</label><input class="form-control" name="name" value="{{ $service->name }}" maxlength="255" required></div>
                                     <div class="col-lg-4"><label class="form-label">Categoría</label><select class="form-select" name="category"><option value="infraestructura" @selected($service->category === 'infraestructura')>Infraestructura SIAT</option><option value="facturacion" @selected($service->category === 'facturacion')>Facturación / documento sector</option></select></div>
-                                    <div class="col-12"><label class="form-label">URL WSDL</label><input class="form-control font-monospace" name="url" type="url" value="{{ $service->url }}" maxlength="2048" required></div>
+                                    <div class="col-12"><label class="form-label">URL WSDL</label><input class="form-control font-monospace" name="url" type="url" value="{{ $service->url }}" maxlength="1000" required></div>
                                     <div class="col-lg-9"><label class="form-label">Descripción</label><input class="form-control" name="description" value="{{ $service->description }}" maxlength="1000"></div>
                                     <div class="col-lg-3 d-flex align-items-end"><label class="form-check form-switch mb-2"><input class="form-check-input" name="is_active" type="checkbox" value="1" @checked($service->is_active)><span class="form-check-label">Activo</span></label></div>
                                 </div>

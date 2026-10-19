@@ -31,7 +31,7 @@ final readonly class SoapInvoiceCancellationReversalSiatClient implements Invoic
         }
         try {
             $client = $this->clients->make(
-                ($this->wsdls ?? new InvoiceWsdlResolver)->resolve((int) $invoice->document_sector_code, (int) $invoice->company_id),
+                ($this->wsdls ?? new InvoiceWsdlResolver)->resolve((int) $invoice->document_sector_code, (int) $invoice->company_id, $invoice->environment_code),
                 (string) $token->api_token,
                 30,
             );

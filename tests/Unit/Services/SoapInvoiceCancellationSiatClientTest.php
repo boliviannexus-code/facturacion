@@ -15,10 +15,21 @@ use App\Services\Billing\SoapInvoiceCancellationSiatClient;
 use App\Services\Siat\SiatErrorClassifier;
 use App\Services\Siat\SiatLogSanitizer;
 use App\Services\Siat\SiatSoapClientFactory;
+use App\Services\Siat\SiatWsdlRegistry;
+use App\Services\Siat\SiatWsdlResolver;
 use Tests\TestCase;
 
 final class SoapInvoiceCancellationSiatClientTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $resolver = \Mockery::mock(SiatWsdlResolver::class);
+        $resolver->shouldReceive('resolve')->with(0, SiatEnvironment::TestingAndPilot, 'purchase_sale_invoice')
+            ->andReturn(SiatWsdlRegistry::PURCHASE_SALE_INVOICE);
+        $this->app->instance(SiatWsdlResolver::class, $resolver);
+    }
+
     public function test_sends_official_purchase_sale_cancellation_payload(): void
     {
         $soap = new RecordingCancellationSoap;

@@ -7,6 +7,7 @@ use App\Enums\InvoicePrintFormat;
 use App\Enums\SiatEnvironment;
 use App\Models\SinCatalogItem;
 use App\Models\SinInvoiceIssue;
+use App\Services\Siat\SiatWsdlResolver;
 use Illuminate\Support\Carbon;
 use TCPDF;
 
@@ -558,9 +559,7 @@ class PurchaseSaleInvoicePdfService
     public function verificationUrl(SinInvoiceIssue $invoice, InvoicePrintFormat $format = InvoicePrintFormat::HalfPage): string
     {
         $header = $invoice->payload['cabecera'] ?? [];
-        $baseUrl = $invoice->environment_code === SiatEnvironment::Production
-            ? 'https://siat.impuestos.gob.bo/consulta/QR'
-            : 'https://pilotosiat.impuestos.gob.bo/consulta/QR';
+        $baseUrl = app(SiatWsdlResolver::class)->qrBaseUrl($invoice->environment_code);
 
         return $baseUrl.'?'.http_build_query([
             'nit' => data_get($header, 'nitEmisor', $invoice->tax_id),
