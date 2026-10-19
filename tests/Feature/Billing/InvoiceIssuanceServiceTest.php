@@ -469,6 +469,47 @@ final class InvoiceIssuanceServiceTest extends TestCase
         $this->assertDatabaseCount('sin_invoice_issues', 0);
     }
 
+    public function test_expired_or_pending_token_blocks_issuance_even_when_offline_is_forced(): void
+    {
+        foreach (['expired_dates', 'future_dates', 'expired_jwt', 'future_jwt', 'invalid_jwt'] as $case) {
+            $context = $this->context();
+            $context['authorization']->update(['force_offline_emission' => true]);
+            $claims = ['exp' => now()->addHour()->timestamp];
+            if ($case === 'expired_jwt') {
+                $claims['exp'] = now()->timestamp;
+            }
+            if ($case === 'future_jwt') {
+                $claims['nbf'] = now()->addHour()->timestamp;
+            }
+            $payload = rtrim(strtr(base64_encode(json_encode($claims)), '+/', '-_'), '=');
+            $context['token']->update([
+                'starts_at' => $case === 'future_dates' ? today()->addDay() : today()->subDay(),
+                'ends_at' => $case === 'expired_dates' ? today()->subDay() : today()->addYear(),
+                'api_token' => $case === 'invalid_jwt' ? 'invalid.payload.signature' : 'header.'.$payload.'.signature',
+            ]);
+
+            $result = app(InvoiceIssuanceService::class)->issue($context['sale']);
+
+            self::assertSame(InvoiceIssuanceDecision::Blocked, $result->decision, $case);
+            self::assertNull($result->invoice, $case);
+            $this->assertDatabaseCount('sin_invoice_issues', 0);
+        }
+    }
+
+    public function test_valid_jwt_allows_invoice_issuance(): void
+    {
+        $context = $this->context();
+        $claims = ['exp' => now()->addHour()->timestamp, 'nbf' => now()->subMinute()->timestamp];
+        $payload = rtrim(strtr(base64_encode(json_encode($claims)), '+/', '-_'), '=');
+        $context['token']->update(['api_token' => 'header.'.$payload.'.signature']);
+        $this->simulate(true, [$this->response(908, true, 'TOKEN-VALIDO-908')]);
+
+        $result = app(InvoiceIssuanceService::class)->issue($context['sale']);
+
+        self::assertSame(InvoiceIssuanceDecision::Online, $result->decision);
+        self::assertNotNull($result->invoice);
+    }
+
     public function test_missing_cufd_during_outage_requires_manual_cafc_when_range_exists(): void
     {
         $context = $this->context(withCufd: false);

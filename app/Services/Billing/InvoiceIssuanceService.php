@@ -387,6 +387,10 @@ class InvoiceIssuanceService
             return 'Falta token o autorizacion para Facturacion Computarizada en Linea.';
         }
 
+        if ($token->status_label !== 'Vigente') {
+            return "El token delegado está {$token->status_label}. Actualiza el token y su vigencia antes de emitir la factura.";
+        }
+
         $cuis = SinCuis::query()->withoutGlobalScope('company')
             ->usable()
             ->where('company_id', $sale->company_id)
@@ -529,6 +533,12 @@ class InvoiceIssuanceService
 
             if ($existing = $this->existingInvoice($lockedSale, true)) {
                 return $existing;
+            }
+
+            if ($token->status_label !== 'Vigente') {
+                throw ValidationException::withMessages([
+                    'api_token' => 'El token delegado dejó de estar vigente. Actualízalo antes de emitir la factura.',
+                ]);
             }
 
             $documentSectorCode = (int) $lockedSale->document_sector_code;

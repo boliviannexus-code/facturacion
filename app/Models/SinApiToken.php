@@ -60,6 +60,36 @@ class SinApiToken extends Model implements Auditable
     {
         $today = today();
 
+        $parts = explode('.', (string) $this->api_token);
+        if (count($parts) > 1) {
+            $payload = count($parts) === 3
+                ? base64_decode(strtr($parts[1], '-_', '+/'), true)
+                : false;
+            $claims = $payload !== false ? json_decode($payload, true) : null;
+
+            if (! is_array($claims) || ! isset($claims['exp']) || ! is_int($claims['exp'])) {
+                return 'Inválido';
+            }
+
+            if ($claims['exp'] <= now()->getTimestamp()) {
+                return 'Vencido';
+            }
+
+            if (isset($claims['nbf'])) {
+                if (! is_int($claims['nbf'])) {
+                    return 'Inválido';
+                }
+
+                if ($claims['nbf'] > now()->getTimestamp()) {
+                    return 'Pendiente';
+                }
+            }
+        }
+
+        if (! $this->starts_at || ! $this->ends_at || trim((string) $this->api_token) === '') {
+            return 'Inválido';
+        }
+
         if ($this->starts_at->isFuture()) {
             return 'Pendiente';
         }

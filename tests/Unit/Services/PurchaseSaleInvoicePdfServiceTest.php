@@ -14,6 +14,33 @@ use Tests\TestCase;
 
 class PurchaseSaleInvoicePdfServiceTest extends TestCase
 {
+    public function test_each_item_additional_description_is_printed_in_both_formats(): void
+    {
+        foreach ([InvoicePrintFormat::HalfPage, InvoicePrintFormat::Roll] as $format) {
+            $invoice = $this->invoice($format);
+            $payload = $invoice->payload;
+            $template = $payload['detalle'][0];
+            $payload['detalle'] = [
+                array_replace($template, ['descripcion' => 'Servicio demo - LOTEPRIMERO']),
+                array_replace($template, ['descripcion' => 'Servicio demo - LOTESEGUNDO']),
+            ];
+            $invoice->payload = $payload;
+
+            $pdf = app(PurchaseSaleInvoicePdfService::class)->render($invoice);
+            preg_match_all('/stream\r?\n(.*?)\r?\nendstream/s', $pdf, $matches);
+            $content = '';
+            foreach ($matches[1] as $encoded) {
+                $decoded = @gzuncompress($encoded);
+                if ($decoded !== false) {
+                    $content .= $decoded;
+                }
+            }
+
+            $this->assertSame(1, substr_count($content, 'LOTEPRIMERO'), $format->value);
+            $this->assertSame(1, substr_count($content, 'LOTESEGUNDO'), $format->value);
+        }
+    }
+
     public function test_renders_purchase_sale_invoice_pdf(): void
     {
         $invoice = $this->invoice();
