@@ -30,6 +30,15 @@
                 data-permission-search
             >
         </div>
+        <div>
+            <label class="visually-hidden" for="{{ $permissionMatrixId }}-module">Filtrar por módulo</label>
+            <select class="form-select" id="{{ $permissionMatrixId }}-module" data-permission-module-filter>
+                <option value="">Todos los módulos ({{ $permissionGroups->count() }})</option>
+                @foreach ($permissionGroups as $module => $modulePermissions)
+                    <option value="{{ $module }}">{{ permission_module_label($module) }} ({{ $modulePermissions->count() }})</option>
+                @endforeach
+            </select>
+        </div>
         <div class="permission-toolbar-actions" aria-label="Acciones masivas">
             <button class="btn btn-outline-primary btn-sm" type="button" data-permission-select-visible>
                 <i class="ti ti-checks me-1" aria-hidden="true"></i>Activar visibles
@@ -55,6 +64,7 @@
             <article
                 class="permission-module"
                 data-permission-module
+                data-module="{{ $module }}"
                 data-search-text="{{ str(permission_module_label($module).' '.$module)->lower() }}"
             >
                 <div class="permission-module-header">
@@ -63,7 +73,7 @@
                         type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#{{ $modulePanelId }}"
-                        aria-expanded="{{ $moduleSelected > 0 ? 'true' : 'false' }}"
+                        aria-expanded="true"
                         aria-controls="{{ $modulePanelId }}"
                     >
                         <span class="permission-module-icon"><i class="ti ti-folder-shield" aria-hidden="true"></i></span>
@@ -78,7 +88,7 @@
                     </button>
                 </div>
 
-                <div class="collapse {{ $moduleSelected > 0 ? 'show' : '' }}" id="{{ $modulePanelId }}" data-permission-module-panel>
+                <div class="collapse show" id="{{ $modulePanelId }}" data-permission-module-panel>
                     <div class="permission-options">
                         @foreach ($permissions as $permission)
                             @php($action = str($permission->name)->after('.')->toString())

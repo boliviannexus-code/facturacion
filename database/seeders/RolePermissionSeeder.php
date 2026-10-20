@@ -45,7 +45,7 @@ class RolePermissionSeeder extends Seeder
             'cash-registers.open',
             'cash-registers.close',
             'invoices.view',
-            'invoices.issue',
+            'invoices.issue', 'significant-events.view', 'significant-events.register',
             'invoice-tests.run',
             'invoices.cancel',
             'cafc-ranges.view',
@@ -113,7 +113,7 @@ class RolePermissionSeeder extends Seeder
             'cash-registers.open',
             'cash-registers.close',
             'invoices.view',
-            'invoices.issue',
+            'invoices.issue', 'significant-events.view', 'significant-events.register',
             'invoice-tests.run',
             'invoices.cancel',
             'cafc-ranges.view',
@@ -188,7 +188,7 @@ class RolePermissionSeeder extends Seeder
             'cash-registers.open',
             'cash-registers.close',
             'invoices.view',
-            'invoices.issue',
+            'invoices.issue', 'significant-events.view', 'significant-events.register',
             'manual-cafc.view',
             'manual-cafc.use',
             'contingencies.view',
@@ -197,7 +197,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         Role::findOrCreate('branch_admin')->syncPermissions([
-            'dashboard.view', 'cash-registers.view', 'invoices.view', 'invoices.issue',
+            'dashboard.view', 'cash-registers.view', 'invoices.view', 'invoices.issue', 'significant-events.view', 'significant-events.register',
             'cafc-ranges.view', 'cafc-ranges.manage', 'manual-cafc.view', 'manual-cafc.use',
             'manual-cafc.transcribe', 'contingencies.view', 'contingencies.communication.check',
             'contingencies.events.view', 'contingencies.events.retry', 'contingencies.packages.build',

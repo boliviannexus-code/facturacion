@@ -1,12 +1,13 @@
 @extends('layouts.admin')
 
 @section('title', 'Evento significativo | '.config('app.name', 'Base Admin'))
-@section('page-title', 'Registrar evento significativo')
+@section('page-title', auth()->user()->can('significant-events.register') ? 'Registrar evento significativo' : 'Eventos significativos')
 @section('page-subtitle', $invoice ? 'Contingencia del intento de factura Nro. '.$invoice->attempted_invoice_number : 'Registro independiente mediante el servicio de Operaciones del SIAT')
 
 @section('content')
     <div class="row justify-content-center">
         <div class="col-xl-9">
+            @can('significant-events.register')
             <div class="alert alert-warning border-start border-4" role="alert">
                 <h2 class="h5 mb-1">{{ $invoice ? 'Factura no enviada por falta de conexión con el SIN' : 'Comunicar una contingencia sin vincularla a una factura' }}</h2>
                 <p class="mb-0">
@@ -95,7 +96,7 @@
                         </div>
                     </div>
                     <div class="card-footer d-flex justify-content-between">
-                        <a class="btn btn-outline-secondary" href="{{ $invoice ? route('billing.invoices.issue.show', 1) : (auth()->user()->can('contingencies.view') ? route('billing.contingencies.index') : route('dashboard')) }}">{{ $invoice ? 'Volver a facturación' : 'Volver' }}</a>
+                        <a class="btn btn-outline-secondary" href="{{ route('billing.significant-events.index') }}">Volver a eventos</a>
                         <button class="btn btn-primary" type="submit" @disabled($events->isEmpty() || ! $pointOfSale || $pendingOfflineEvent || ($invoice && $registeredEvents->contains('transaccion', true)))>
                             <i class="ti ti-cloud-upload me-1" aria-hidden="true"></i>Registrar en el SIN
                         </button>
@@ -103,6 +104,19 @@
                 </form>
             </div>
 
+            @endcan
+            @cannot('significant-events.register')
+                <form method="GET" action="{{ route('billing.significant-events.index') }}" class="card card-body mb-4">
+                    <label class="form-label" for="view-event-point">Sucursal y punto de venta</label>
+                    <select class="form-select mb-3" name="point_of_sale_id" id="view-event-point">
+                        @foreach($pointsOfSale as $availablePoint)
+                            <option value="{{ $availablePoint->id }}" @selected($pointOfSale?->id === $availablePoint->id)>{{ $availablePoint->branch->name }} · PV {{ $availablePoint->point_of_sale_code }} · {{ $availablePoint->name }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="btn btn-outline-primary">Consultar eventos</button>
+                </form>
+                @if($registeredEvents->isEmpty())<div class="alert alert-info">No hay eventos registrados en este contexto.</div>@endif
+            @endcannot
             @if ($registeredEvents->isNotEmpty())
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">Historial del punto de venta</h3></div>

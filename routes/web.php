@@ -207,21 +207,21 @@ Route::middleware(['auth', 'active_account'])->group(function (): void {
                 ->name('invoices.issue.purchase-sale.store');
             Route::get('facturas/{invoice}/evento-significativo', [SignificantEventController::class, 'create'])
                 ->whereNumber('invoice')
-                ->middleware('permission:invoices.issue')
+                ->middleware('permission:significant-events.view|significant-events.register')
                 ->name('significant-events.create');
             Route::post('facturas/{invoice}/evento-significativo', [SignificantEventController::class, 'store'])
                 ->whereNumber('invoice')
-                ->middleware('permission:invoices.issue')
+                ->middleware('permission:significant-events.register')
                 ->name('significant-events.store');
             Route::get('eventos-significativos', [SignificantEventController::class, 'index'])
-                ->middleware('permission:invoices.issue')
+                ->middleware('permission:significant-events.view|significant-events.register')
                 ->name('significant-events.index');
             Route::get('eventos-significativos/registrar/{pointOfSale}', [SignificantEventController::class, 'createForPointOfSale'])
                 ->whereNumber('pointOfSale')
-                ->middleware('permission:invoices.issue')
+                ->middleware('permission:significant-events.register')
                 ->name('significant-events.point-of-sale.create');
             Route::post('eventos-significativos/registrar', [SignificantEventController::class, 'storeForPointOfSale'])
-                ->middleware('permission:invoices.issue')
+                ->middleware('permission:significant-events.register')
                 ->name('significant-events.point-of-sale.store');
             Route::get('emitir/{documentSectorCode}', [InvoiceIssueController::class, 'show'])
                 ->whereNumber('documentSectorCode')

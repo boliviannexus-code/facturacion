@@ -47,6 +47,7 @@ if (! function_exists('permission_module_label')) {
             'cafc-ranges' => 'Rangos CAFC',
             'manual-cafc' => 'Facturación manual CAFC',
             'contingencies' => 'Contingencias',
+            'significant-events' => 'Eventos significativos',
             'sin-api-tokens' => 'Credenciales del SIN',
             'siat-communication' => 'Comunicación con Impuestos',
             'siat-cuis' => 'Códigos CUIS',
@@ -64,6 +65,7 @@ if (! function_exists('permission_action_label')) {
         $labels = [
             'view' => 'Ver',
             'create' => 'Crear',
+            'register' => 'Registrar',
             'edit' => 'Editar',
             'update' => 'Actualizar',
             'delete' => 'Eliminar',
@@ -117,6 +119,7 @@ if (! function_exists('permission_action_description')) {
         $descriptions = [
             'view' => 'Puede consultar el listado y el detalle.',
             'create' => 'Puede registrar nuevos elementos.',
+            'register' => 'Puede registrar eventos significativos en el SIN.',
             'edit' => 'Puede modificar la informacion existente.',
             'update' => 'Puede modificar la informacion existente.',
             'delete' => 'Puede eliminar elementos.',

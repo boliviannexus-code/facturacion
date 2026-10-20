@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Roles;
 
+use App\Models\Company;
 use App\Models\User;
 use App\Support\ReservedSuperAdmin;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -105,6 +107,31 @@ class AssignRolePermissionsTest extends TestCase
 
         $response->assertRedirect(route('roles.index'));
         $this->assertTrue($role->fresh()->hasPermissionTo('companies.view'));
+    }
+
+    public function test_contingency_permissions_are_visible_unassigned_and_control_access_when_saved(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $company = Company::factory()->create();
+        $actor = User::factory()->create(['company_id' => $company->id]);
+        $actor->givePermissionTo('roles.assign-permissions');
+        $role = Role::findOrCreate('contingency_operator', 'web');
+        $permissions = Permission::where('name', 'like', 'contingencies.%')->pluck('name')->all();
+        self::assertCount(10, $permissions);
+        $form = $this->actingAs($actor)->get(route('roles.permissions.form', $role))->assertOk()
+            ->assertSee('data-permission-module-filter', false)->assertSee('Contingencias (10)')
+            ->assertSee('class="collapse show"', false);
+        foreach ($permissions as $permission) {
+            $form->assertSee('value="'.$permission.'"', false);
+        }
+        $granted = ['contingencies.view', 'contingencies.events.view'];
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])->patchJson(route('roles.permissions', $role), ['permissions' => $granted])->assertOk();
+        self::assertEqualsCanonicalizing($granted, $role->fresh()->permissions->pluck('name')->all());
+        $operator = User::factory()->create(['company_id' => $company->id]);
+        $operator->assignRole($role);
+        $this->actingAs($operator)->get(route('billing.contingencies.index'))->assertOk();
+        $this->actingAs($actor)->patchJson(route('roles.permissions', $role), ['permissions' => []])->assertOk();
+        $this->actingAs($operator->fresh())->get(route('billing.contingencies.index'))->assertForbidden();
     }
 
     public function test_all_company_permissions_can_be_removed_from_super_admin(): void

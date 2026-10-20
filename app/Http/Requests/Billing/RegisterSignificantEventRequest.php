@@ -10,7 +10,7 @@ class RegisterSignificantEventRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('invoices.issue') ?? false;
+        return $this->user()?->can('significant-events.register') ?? false;
     }
 
     public function rules(): array

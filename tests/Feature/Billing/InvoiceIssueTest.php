@@ -40,7 +40,7 @@ class InvoiceIssueTest extends TestCase
 
     public function test_billing_menu_is_rendered_for_users_that_can_issue_invoices(): void
     {
-        $user = $this->companyUser(['dashboard.view', 'invoices.issue']);
+        $user = $this->companyUser(['dashboard.view', 'invoices.issue', 'significant-events.register']);
 
         $this
             ->actingAs($user)
@@ -175,7 +175,7 @@ class InvoiceIssueTest extends TestCase
 
     public function test_significant_event_can_be_registered_without_an_invoice(): void
     {
-        $user = $this->companyUser(['invoices.issue']);
+        $user = $this->companyUser(['invoices.issue', 'significant-events.register']);
         [$apiToken, $authorization, $pointOfSale] = $this->siatConfiguration($user);
         $cuis = SinCuis::factory()->create([
             'company_id' => $user->company_id,
@@ -289,7 +289,7 @@ class InvoiceIssueTest extends TestCase
         ]);
     }
 
-    public function test_independent_significant_event_option_requires_invoice_issue_permission(): void
+    public function test_independent_significant_event_option_requires_event_permission(): void
     {
         $user = $this->companyUser(['dashboard.view']);
 
@@ -750,7 +750,7 @@ class InvoiceIssueTest extends TestCase
 
     public function test_failed_invoice_can_register_a_significant_event_through_operations_service(): void
     {
-        $user = $this->companyUser(['invoices.issue']);
+        $user = $this->companyUser(['invoices.issue', 'significant-events.register']);
         [$apiToken, $authorization, $pointOfSale] = $this->siatConfiguration($user);
         $cuis = SinCuis::factory()->create([
             'company_id' => $user->company_id,

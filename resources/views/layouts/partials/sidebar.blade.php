@@ -20,6 +20,7 @@
         && (
             auth()->user()?->can('invoices.view')
             || auth()->user()?->can('invoices.issue')
+            || auth()->user()?->canAny(['significant-events.view', 'significant-events.register'])
             || auth()->user()?->can('cafc-ranges.view')
             || auth()->user()?->can('manual-cafc.view')
         );
@@ -253,13 +254,15 @@
                                         </a>
                                     </li>
                                 @endcan
-                                @can('invoices.issue')
+                                @canany(['significant-events.view', 'significant-events.register'])
                                     <li class="nav-item {{ request()->routeIs('billing.significant-events.*') ? 'active' : '' }}">
                                         <a class="nav-link" href="{{ route('billing.significant-events.index') }}">
                                             <span class="nav-link-icon"><i class="ti ti-alert-triangle"></i></span>
                                             <span class="nav-link-title">Eventos significativos</span>
                                         </a>
                                     </li>
+                                @endcanany
+                                @can('invoices.issue')
                                     <li class="nav-item {{ request()->routeIs('billing.invoices.issue.*') ? 'active' : '' }}">
                                         <a class="nav-link" href="{{ route('billing.invoices.issue.index') }}">
                                             <span class="nav-link-icon"><i class="ti ti-receipt"></i></span>

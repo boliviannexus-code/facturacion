@@ -1241,8 +1241,10 @@ function initPermissionMatrices(scope = document) {
         const modules = [...matrix.querySelectorAll('[data-permission-module]')];
         const search = matrix.querySelector('[data-permission-search]');
         const empty = matrix.querySelector('[data-permission-empty]');
+        const moduleFilter = matrix.querySelector('[data-permission-module-filter]');
         const selectedCount = matrix.querySelector('[data-permission-selected-count]');
-        const visibleOptions = () => checkboxes.filter((checkbox) => !checkbox.closest('[data-permission-option]')?.classList.contains('d-none'));
+        const visibleOptions = () => checkboxes.filter((checkbox) => !checkbox.closest('[data-permission-option]')?.classList.contains('d-none')
+            && !checkbox.closest('[data-permission-module]')?.classList.contains('d-none'));
 
         const update = () => {
             if (selectedCount) {
@@ -1278,7 +1280,8 @@ function initPermissionMatrices(scope = document) {
                 let visibleOptionCount = 0;
 
                 options.forEach((option) => {
-                    const matches = !query || moduleMatches || option.dataset.searchText?.includes(query);
+                    const selectedModuleMatches = !moduleFilter?.value || module.dataset.module === moduleFilter.value;
+                    const matches = selectedModuleMatches && (!query || moduleMatches || option.dataset.searchText?.includes(query));
                     option.classList.toggle('d-none', !matches);
                     visibleOptionCount += matches ? 1 : 0;
                 });
@@ -1287,7 +1290,7 @@ function initPermissionMatrices(scope = document) {
                 module.classList.toggle('d-none', !visible);
                 visibleModules += visible ? 1 : 0;
 
-                if (query && visible) {
+                if ((query || moduleFilter?.value) && visible) {
                     bootstrap.Collapse.getOrCreateInstance(module.querySelector('[data-permission-module-panel]'), { toggle: false }).show();
                 }
             });
@@ -1297,6 +1300,7 @@ function initPermissionMatrices(scope = document) {
 
         checkboxes.forEach((checkbox) => checkbox.addEventListener('change', update));
         search?.addEventListener('input', filter);
+        moduleFilter?.addEventListener('change', filter);
 
         matrix.querySelector('[data-permission-select-visible]')?.addEventListener('click', () => {
             visibleOptions().forEach((checkbox) => {

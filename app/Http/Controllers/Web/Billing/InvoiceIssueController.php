@@ -232,7 +232,7 @@ class InvoiceIssueController extends Controller
                     'commercial_status' => $issue->commercial_status->value,
                     'fiscal_status' => $issue->fiscal_status->value,
                     'failure_category' => $issue->failure_category?->value,
-                    'contingency_url' => $issue->allowsSignificantEvent()
+                    'contingency_url' => $request->user()->can('significant-events.register') && $issue->allowsSignificantEvent()
                         ? route('billing.significant-events.create', $issue)
                         : null,
                 ] : null,
