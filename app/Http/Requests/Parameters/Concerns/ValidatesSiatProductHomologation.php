@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Parameters\Concerns;
 
 use App\Models\Product;
+use App\Support\CompanyContext;
 use App\Support\SiatProductHomologation;
 use Illuminate\Validation\Validator;
 
@@ -19,7 +20,7 @@ trait ValidatesSiatProductHomologation
                 return;
             }
 
-            $companyId = $this->user()?->company_id;
+            $companyId = CompanyContext::operatingCompanyId($this->user());
             $unitCode = (string) $this->input('measurement_unit_code');
             $activityCode = (string) $this->input('economic_activity_code');
             $productCode = (string) $this->input('siat_product_code');

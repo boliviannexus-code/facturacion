@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Billing;
 
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class RecordManualCafcInvoiceRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
 
         return [
             'cafc_range_id' => ['required', 'integer', Rule::exists('sin_cafc_ranges', 'id')->where('company_id', $companyId)],

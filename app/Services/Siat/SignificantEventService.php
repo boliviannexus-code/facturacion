@@ -13,6 +13,7 @@ use App\Models\SinSignificantEvent;
 use App\Models\User;
 use App\Services\Parameters\SinAuthorizationService;
 use App\Services\SinApiTokenService;
+use App\Support\CompanyContext;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -203,7 +204,7 @@ class SignificantEventService
         ];
 
         $event = SinSignificantEvent::query()->create([
-            'company_id' => $user->company_id,
+            'company_id' => CompanyContext::operatingCompanyId($user),
             'user_id' => $user->id,
             'sin_invoice_issue_id' => $invoice?->id,
             'sin_api_token_id' => $apiToken->id,

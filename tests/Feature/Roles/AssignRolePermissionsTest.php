@@ -3,6 +3,7 @@
 namespace Tests\Feature\Roles;
 
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -108,7 +109,7 @@ class AssignRolePermissionsTest extends TestCase
 
     public function test_all_company_permissions_can_be_removed_from_super_admin(): void
     {
-        $actor = User::factory()->create();
+        $actor = User::factory()->create(['email' => ReservedSuperAdmin::EMAIL]);
         $requiredPermissions = [
             'roles.assign-permissions',
             'roles.view',
@@ -128,6 +129,7 @@ class AssignRolePermissionsTest extends TestCase
         $actor->givePermissionTo('roles.assign-permissions');
 
         $role = Role::findOrCreate('super_admin');
+        $actor->assignRole($role);
         $role->syncPermissions([...$requiredPermissions, ...$companyPermissions]);
 
         $response = $this

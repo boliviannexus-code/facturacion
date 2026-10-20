@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CashRegister;
 use App\Models\User;
+use App\Support\CompanyContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,7 @@ class CashRegisterService
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($lockedUser->company_id === null) {
+                if (CompanyContext::operatingCompanyId($lockedUser) === null) {
                     throw ValidationException::withMessages([
                         'cash_register' => 'El usuario debe pertenecer a una empresa para abrir una caja.',
                     ]);
@@ -55,7 +56,7 @@ class CashRegisterService
                 }
 
                 return CashRegister::query()->create([
-                    'company_id' => $lockedUser->company_id,
+                    'company_id' => CompanyContext::operatingCompanyId($lockedUser),
                     'user_id' => $lockedUser->id,
                     'opening_amount' => $data['opening_amount'],
                     'opening_notes' => $data['opening_notes'] ?? null,
@@ -83,7 +84,7 @@ class CashRegisterService
                 ->firstOrFail();
 
             if (
-                (int) $lockedRegister->company_id !== (int) $user->company_id
+                (int) $lockedRegister->company_id !== (int) CompanyContext::operatingCompanyId($user)
                 || (int) $lockedRegister->user_id !== (int) $user->id
             ) {
                 abort(403);

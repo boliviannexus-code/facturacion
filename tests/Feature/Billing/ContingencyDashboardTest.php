@@ -31,6 +31,7 @@ use App\Services\Siat\SiatCommunicationService;
 use App\Services\Siat\SiatDateTime;
 use App\Services\Siat\SiatHealthCheckResult;
 use App\Services\Siat\SignificantEventService;
+use App\Support\ReservedSuperAdmin;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -367,7 +368,7 @@ final class ContingencyDashboardTest extends TestCase
     public function test_global_superadministrator_can_select_a_company_without_cross_company_mutation(): void
     {
         $this->seed(RolePermissionSeeder::class);
-        $global = User::factory()->create(['company_id' => null]);
+        $global = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         $global->assignRole('super_admin');
 
         $this->actingAs($global)->get($this->dashboardUrl())

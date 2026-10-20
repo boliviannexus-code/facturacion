@@ -10,6 +10,7 @@ use App\Enums\InvoiceTestItemStatus;
 use App\Models\InvoiceTestBatch;
 use App\Models\InvoiceTestBatchItem;
 use App\Services\Billing\InvoiceCancellationService;
+use App\Support\CompanyContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -29,6 +30,11 @@ final class CancelInvoiceTestItemJob implements ShouldQueue
     public function __construct(public readonly int $companyId, public readonly int $batchId, public readonly int $itemId) {}
 
     public function handle(InvoiceCancellationService $cancellations): void
+    {
+        CompanyContext::runInCompany($this->companyId, fn () => $this->handleInCompany($cancellations));
+    }
+
+    private function handleInCompany(InvoiceCancellationService $cancellations): void
     {
         $item = InvoiceTestBatchItem::query()->withoutGlobalScope('company')
             ->with(['batch.user', 'invoice'])->where('company_id', $this->companyId)->findOrFail($this->itemId);

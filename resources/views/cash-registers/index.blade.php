@@ -141,7 +141,7 @@
                         <span class="avatar bg-primary-lt text-primary"><i class="ti ti-user-dollar"></i></span>
                         <div>
                             <div class="fw-semibold">{{ auth()->user()->name }}</div>
-                            <div class="text-body-secondary small">{{ auth()->user()->company?->name }}</div>
+                            <div class="text-body-secondary small">{{ \App\Support\CompanyContext::activeCompany()?->name }}</div>
                         </div>
                     </div>
 

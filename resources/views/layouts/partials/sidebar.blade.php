@@ -14,9 +14,9 @@
     $parametersOpen = request()->routeIs('parameters.*') || $invoicePrintSettingsOpen;
 
     $canOrganization = auth()->user()?->can('companies.view');
-    $canCashRegisters = auth()->user()?->company_id !== null
+    $canCashRegisters = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('cash-registers.view');
-    $canBilling = auth()->user()?->company_id !== null
+    $canBilling = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && (
             auth()->user()?->can('invoices.view')
             || auth()->user()?->can('invoices.issue')
@@ -25,18 +25,18 @@
         );
     $canContingencies = \App\Support\CompanyContext::canOperate(auth()->user())
         && auth()->user()?->can('contingencies.view');
-    $canApiToken = auth()->user()?->company_id !== null
+    $canApiToken = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('sin-api-tokens.view');
-    $canSiatCommunication = auth()->user()?->company_id !== null
+    $canSiatCommunication = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('siat-communication.view');
-    $canSiatCuis = auth()->user()?->company_id !== null
+    $canSiatCuis = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('siat-cuis.view');
-    $canSiatCatalogs = auth()->user()?->company_id !== null
+    $canSiatCatalogs = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('siat-catalogs.view');
-    $canSiatBranches = auth()->user()?->company_id !== null
+    $canSiatBranches = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && auth()->user()?->can('siat-branches.view');
     $canSiat = $canApiToken || $canSiatCommunication || $canSiatCuis || $canSiatCatalogs || $canSiatBranches;
-    $canParameters = auth()->user()?->company_id !== null
+    $canParameters = \App\Support\CompanyContext::hasCompanyScope(auth()->user())
         && (
             auth()->user()?->can('product-categories.view')
             || auth()->user()?->can('customers.view')

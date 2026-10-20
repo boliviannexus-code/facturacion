@@ -17,6 +17,7 @@ use App\Models\SinAuthorization;
 use App\Models\SinCafcRange;
 use App\Models\SinCatalogItem;
 use App\Models\User;
+use App\Support\CompanyContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -113,7 +114,7 @@ final class InvoiceTestBatchService
     /** @param array<string, mixed> $data */
     public function create(User $user, array $data): InvoiceTestBatch
     {
-        $companyId = (int) $user->company_id;
+        $companyId = (int) CompanyContext::operatingCompanyId($user);
         $this->assertPilotEnvironment($companyId);
 
         $product = Product::query()->withoutGlobalScope('company')
@@ -263,5 +264,4 @@ final class InvoiceTestBatchService
             ]);
         }
     }
-
 }

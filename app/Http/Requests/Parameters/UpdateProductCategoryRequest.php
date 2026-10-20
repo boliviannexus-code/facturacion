@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Parameters;
 
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class UpdateProductCategoryRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
         $category = $this->route('productCategory');
 
         return [

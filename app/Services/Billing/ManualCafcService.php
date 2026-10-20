@@ -29,6 +29,7 @@ use App\Services\Siat\InvoiceXmlValidator;
 use App\Services\Siat\PurchaseSaleInvoiceXmlBuilder;
 use App\Services\Siat\SiatCufGenerator;
 use App\Services\Siat\SiatDateTime;
+use App\Support\CompanyContext;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,14 +59,14 @@ final class ManualCafcService
             $pointId = isset($attributes['sin_point_of_sale_id']) ? (int) $attributes['sin_point_of_sale_id'] : null;
 
             if ($pointId !== null) {
-                $this->pointOfSale((int) $actor->company_id, $branchId, $pointId);
+                $this->pointOfSale((int) CompanyContext::operatingCompanyId($actor), $branchId, $pointId);
             }
 
             $eventId = isset($attributes['sin_significant_event_id']) ? (int) $attributes['sin_significant_event_id'] : null;
             if ($eventId !== null) {
                 $eventIsValid = SinSignificantEvent::query()->withoutGlobalScope('company')
                     ->whereKey($eventId)
-                    ->where('company_id', $actor->company_id)
+                    ->where('company_id', CompanyContext::operatingCompanyId($actor))
                     ->where('sin_branch_id', $branchId)
                     ->where('sin_point_of_sale_id', $pointId)
                     ->where('transaccion', true)
@@ -86,7 +87,7 @@ final class ManualCafcService
             }
 
             return SinCafcRange::query()->withoutGlobalScope('company')->create([
-                'company_id' => $actor->company_id,
+                'company_id' => CompanyContext::operatingCompanyId($actor),
                 'sin_branch_id' => $branchId,
                 'sin_point_of_sale_id' => $pointId,
                 'sin_significant_event_id' => $eventId,
@@ -128,7 +129,7 @@ final class ManualCafcService
         return DB::transaction(function () use ($range, $cafcCode, $actor): SinCafcRange {
             $locked = SinCafcRange::query()->withoutGlobalScope('company')->lockForUpdate()->findOrFail($range->id);
 
-            if ((int) $locked->company_id !== (int) $actor->company_id) {
+            if ((int) $locked->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
                 throw ValidationException::withMessages(['cafc_code' => 'El CAFC no pertenece a la empresa activa.']);
             }
             if ($locked->sin_significant_event_id !== null || $locked->manualInvoices()->exists()) {
@@ -161,7 +162,7 @@ final class ManualCafcService
                 ->lockForUpdate()
                 ->findOrFail($range->id);
 
-            if ((int) $locked->company_id !== (int) $actor->company_id) {
+            if ((int) $locked->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
                 throw ValidationException::withMessages([
                     'cafc_range' => 'El CAFC no pertenece a la empresa activa.',
                 ]);
@@ -181,8 +182,8 @@ final class ManualCafcService
     {
         DB::transaction(function () use ($range, $actor): void {
             $locked = SinCafcRange::withoutGlobalScope('company')->lockForUpdate()->findOrFail($range->id);
-            $authorization = SinAuthorization::withoutGlobalScope('company')->where('company_id', $actor->company_id)->first();
-            if ((int) $locked->company_id !== (int) $actor->company_id
+            $authorization = SinAuthorization::withoutGlobalScope('company')->where('company_id', CompanyContext::operatingCompanyId($actor))->first();
+            if ((int) $locked->company_id !== (int) CompanyContext::operatingCompanyId($actor)
                 || $authorization?->environment_code !== SiatEnvironment::TestingAndPilot) {
                 throw ValidationException::withMessages(['cafc_range' => 'Solo puede reiniciar CAFC de la empresa activa en ambiente de pruebas.']);
             }
@@ -268,7 +269,7 @@ final class ManualCafcService
         return DB::transaction(function () use ($manual, $customer, $data, $prepared, $actor, $subtotal, $discount, $total, $evidenceData): SinManualContingencyInvoice {
             $locked = SinManualContingencyInvoice::query()->withoutGlobalScope('company')->lockForUpdate()->findOrFail($manual->id);
 
-            if ((int) $locked->company_id !== (int) $actor->company_id || (int) $customer->company_id !== (int) $actor->company_id) {
+            if ((int) $locked->company_id !== (int) CompanyContext::operatingCompanyId($actor) || (int) $customer->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
                 throw ValidationException::withMessages(['customer_id' => 'El CAFC y el cliente deben pertenecer a la empresa activa.']);
             }
             if ($locked->manual_status === ManualContingencyInvoiceStatus::Cancelled) {
@@ -404,7 +405,7 @@ final class ManualCafcService
             $locked = SinCafcRange::query()->withoutGlobalScope('company')->lockForUpdate()->findOrFail($range->id);
             $this->validateRange($locked, $point, $number, $issuedAt);
 
-            if ((int) $locked->company_id !== (int) $actor->company_id) {
+            if ((int) $locked->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
                 throw ValidationException::withMessages(['cafc_range_id' => 'El CAFC no pertenece a la empresa activa.']);
             }
             if (! $cancelled) {

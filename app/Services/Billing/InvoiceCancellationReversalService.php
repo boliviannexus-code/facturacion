@@ -19,6 +19,7 @@ use App\Models\SinResponseMessage;
 use App\Models\SinSiatAttempt;
 use App\Models\User;
 use App\Services\Billing\Contracts\InvoiceCancellationReversalSiatClient;
+use App\Support\CompanyContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -37,7 +38,7 @@ final readonly class InvoiceCancellationReversalService
     {
         [$locked, $cufd, $attempt] = DB::transaction(function () use ($invoice, $pointOfSaleId, $actor): array {
             $locked = SinInvoiceIssue::query()->withoutGlobalScope('company')->with('customer')->lockForUpdate()->findOrFail($invoice->id);
-            if ($locked->company_id !== $actor->company_id) {
+            if ($locked->company_id !== CompanyContext::operatingCompanyId($actor)) {
                 abort(404);
             }
             if ($locked->reversed_at || $locked->fiscal_status === InvoiceFiscalStatus::ReversedInSiat) {

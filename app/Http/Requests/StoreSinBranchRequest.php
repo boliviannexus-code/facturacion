@@ -11,7 +11,7 @@ class StoreSinBranchRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->company_id !== null
+        return CompanyContext::operatingCompanyId($this->user()) !== null
             && ($this->user()?->can('siat-branches.manage') ?? false);
     }
 

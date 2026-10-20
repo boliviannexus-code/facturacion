@@ -22,6 +22,7 @@ use App\Services\Billing\SaleCreationService;
 use App\Services\Billing\SequentialCafcTestPeriod;
 use App\Services\Siat\ContingencyRecoveryService;
 use App\Services\Siat\SignificantEventService;
+use App\Support\CompanyContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -58,6 +59,18 @@ final class ProcessOfflineContingencyTestItemJob implements ShouldQueue
     }
 
     public function handle(
+        InvoiceTestBatchService $testBatches,
+        SaleCreationService $sales,
+        InvoiceIssuanceService $issuance,
+        ContingencyRecoveryService $recovery,
+        ManualCafcService $manualCafc,
+        SignificantEventService $significantEvents,
+        InvoicePackageService $packages,
+    ): void {
+        CompanyContext::runInCompany($this->companyId, fn () => $this->handleInCompany($testBatches, $sales, $issuance, $recovery, $manualCafc, $significantEvents, $packages));
+    }
+
+    private function handleInCompany(
         InvoiceTestBatchService $testBatches,
         SaleCreationService $sales,
         InvoiceIssuanceService $issuance,

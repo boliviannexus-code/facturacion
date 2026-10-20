@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -17,8 +18,8 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
         ]);
 
-        $admin = User::updateOrCreate(
-            ['email' => 'boliviannexus@gmail.com'],
+        $admin = User::whereRaw('lower(btrim(email)) = ?', [ReservedSuperAdmin::EMAIL])->first() ?? User::firstOrCreate(
+            ['email' => ReservedSuperAdmin::EMAIL],
             [
                 'name' => 'Administrador',
                 'password' => Hash::make('83249842'),

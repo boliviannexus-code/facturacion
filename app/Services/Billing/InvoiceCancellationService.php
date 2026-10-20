@@ -20,6 +20,7 @@ use App\Models\SinResponseMessage;
 use App\Models\SinSiatAttempt;
 use App\Models\User;
 use App\Services\Billing\Contracts\InvoiceCancellationSiatClient;
+use App\Support\CompanyContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -41,7 +42,7 @@ final readonly class InvoiceCancellationService
             $locked = SinInvoiceIssue::query()->withoutGlobalScope('company')
                 ->with(['customer'])->lockForUpdate()->findOrFail($invoice->id);
 
-            if ($locked->company_id !== $actor->company_id) {
+            if ($locked->company_id !== CompanyContext::operatingCompanyId($actor)) {
                 abort(404);
             }
 

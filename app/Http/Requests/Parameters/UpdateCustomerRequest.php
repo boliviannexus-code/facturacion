@@ -4,6 +4,7 @@ namespace App\Http\Requests\Parameters;
 
 use App\Http\Requests\Parameters\Concerns\ValidatesSiatIdentityDocumentType;
 use App\Models\Customer;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -19,7 +20,7 @@ class UpdateCustomerRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
         $customer = $this->route('customer');
 
         return [

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Parameters;
 use App\Enums\SiatEnvironment;
 use App\Enums\SiatModality;
 use App\Models\SinAuthorization;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,7 +13,7 @@ class SaveSinAuthorizationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->company_id !== null
+        return CompanyContext::operatingCompanyId($this->user()) !== null
             && ($this->user()?->can('sin-authorizations.manage') ?? false);
     }
 

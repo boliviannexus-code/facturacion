@@ -13,6 +13,7 @@ use App\Models\InvoiceTestBatchItem;
 use App\Services\Billing\InvoiceIssuanceService;
 use App\Services\Billing\InvoiceTestBatchService;
 use App\Services\Billing\SaleCreationService;
+use App\Support\CompanyContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -36,6 +37,14 @@ final class IssueInvoiceTestItemJob implements ShouldQueue
     ) {}
 
     public function handle(
+        InvoiceTestBatchService $testBatches,
+        SaleCreationService $sales,
+        InvoiceIssuanceService $issuance,
+    ): void {
+        CompanyContext::runInCompany($this->companyId, fn () => $this->handleInCompany($testBatches, $sales, $issuance));
+    }
+
+    private function handleInCompany(
         InvoiceTestBatchService $testBatches,
         SaleCreationService $sales,
         InvoiceIssuanceService $issuance,

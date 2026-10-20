@@ -16,7 +16,7 @@ final class SaveSinWsdlServiceRequest extends FormRequest
     {
         $service = $this->route('wsdlService');
 
-        return $this->user()?->company_id !== null
+        return CompanyContext::operatingCompanyId($this->user()) !== null
             && ($this->user()?->can('sin-api-tokens.manage') ?? false)
             && (! $service instanceof SinWsdlService
                 || CompanyContext::belongsToUser($service->company_id, $this->user()));

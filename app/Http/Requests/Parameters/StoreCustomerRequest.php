@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Parameters;
 
 use App\Http\Requests\Parameters\Concerns\ValidatesSiatIdentityDocumentType;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -18,7 +19,7 @@ class StoreCustomerRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
 
         return [
             'identity_document_type_code' => ['required', 'integer', 'min:1', 'max:2147483647'],

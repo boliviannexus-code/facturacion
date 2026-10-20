@@ -354,6 +354,7 @@ class ProductCatalogTest extends TestCase
     public function test_database_protects_product_uniqueness_and_cross_company_relations(): void
     {
         $indexes = DB::table('pg_indexes')
+            ->whereRaw('schemaname = current_schema()')
             ->where('tablename', 'products')
             ->whereIn('indexname', [
                 'products_company_internal_code_unique',
@@ -362,6 +363,7 @@ class ProductCatalogTest extends TestCase
             ->count();
 
         $constraints = DB::table('pg_constraint')
+            ->whereRaw('connamespace = current_schema()::regnamespace')
             ->whereIn('conname', [
                 'products_required_text_not_blank_check',
                 'products_siat_product_code_positive_check',

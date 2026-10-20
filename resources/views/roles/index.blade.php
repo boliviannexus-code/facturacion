@@ -22,15 +22,15 @@
                         <td>{{ $role->created_at?->format('Y-m-d') }}</td>
                         <td class="text-end">
                             <a class="btn btn-outline-secondary btn-sm" href="{{ route('roles.show', $role) }}" data-modal-url="{{ route('roles.show', $role) }}" data-modal-title="Detalle de rol">Ver</a>
-                            @can('roles.edit')
+                            @can('update', $role)
                                 <a class="btn btn-outline-primary btn-sm" href="{{ route('roles.edit', $role) }}" data-modal-url="{{ route('roles.edit', $role) }}" data-modal-title="Editar rol" data-modal-size="xl">Editar</a>
                             @endcan
-                            @can('roles.assign-permissions')
+                            @can('assignPermissions', $role)
                                 <a class="btn btn-outline-info btn-sm" href="{{ route('roles.permissions.form', $role) }}" data-modal-url="{{ route('roles.permissions.form', $role) }}" data-modal-title="Configurar permisos" data-modal-size="xl">
                                     <i class="ti ti-shield-cog me-1" aria-hidden="true"></i>Configurar acceso
                                 </a>
                             @endcan
-                            @can('roles.delete')
+                            @can('delete', $role)
                                 <form class="d-inline" method="POST" action="{{ route('roles.destroy', $role) }}" data-confirm-delete="Eliminar rol?">
                                     @csrf
                                     @method('DELETE')

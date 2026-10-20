@@ -8,7 +8,7 @@ class AssignRolePermissionsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('roles.assign-permissions') ?? false;
+        return $this->user()?->can('assignPermissions', $this->route('role')) ?? false;
     }
 
     public function rules(): array

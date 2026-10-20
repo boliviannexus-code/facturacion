@@ -23,6 +23,7 @@ use App\Models\SinCafcRange;
 use App\Models\SinCatalogItem;
 use App\Services\Billing\InvoiceDocumentSector;
 use App\Services\Billing\InvoiceTestBatchService;
+use App\Support\CompanyContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ final class InvoiceTestBatchController extends Controller
 {
     public function index(Request $request): View
     {
-        $companyId = (int) $request->user()->company_id;
+        $companyId = (int) CompanyContext::operatingCompanyId($request->user());
         $selected = null;
 
         if ($request->filled('batch')) {
@@ -116,7 +117,7 @@ final class InvoiceTestBatchController extends Controller
         InvoiceTestBatch $batch,
         InvoiceTestBatchService $service,
     ): RedirectResponse {
-        abort_unless((int) $batch->company_id === (int) $request->user()->company_id, 404);
+        abort_unless((int) $batch->company_id === (int) CompanyContext::operatingCompanyId($request->user()), 404);
         $items = $service->prepareCancellation($batch, $request->integer('reason_code'));
         $jobs = $items->map(fn ($item): CancelInvoiceTestItemJob => new CancelInvoiceTestItemJob(
             (int) $batch->company_id, (int) $batch->id, (int) $item->id,
@@ -132,7 +133,7 @@ final class InvoiceTestBatchController extends Controller
         InvoiceTestBatch $batch,
         InvoiceTestBatchService $service,
     ): RedirectResponse {
-        abort_unless((int) $batch->company_id === (int) $request->user()->company_id, 404);
+        abort_unless((int) $batch->company_id === (int) CompanyContext::operatingCompanyId($request->user()), 404);
         $items = $service->prepareReversal($batch);
         $jobs = $items->map(fn ($item): ReverseInvoiceTestItemJob => new ReverseInvoiceTestItemJob(
             (int) $batch->company_id,

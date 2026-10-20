@@ -6,6 +6,7 @@ use App\Models\CashRegister;
 use App\Models\Company;
 use App\Models\Sale;
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -195,7 +196,7 @@ class CashRegisterTest extends TestCase
         Permission::findOrCreate('cash-registers.view');
         Role::findOrCreate('super_admin');
 
-        $user = User::factory()->create(['company_id' => null]);
+        $user = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         $user->assignRole('super_admin');
         $user->givePermissionTo('cash-registers.view');
 
@@ -253,7 +254,7 @@ class CashRegisterTest extends TestCase
     public function test_user_with_cash_register_history_cannot_be_moved_to_another_company(): void
     {
         Permission::findOrCreate('users.edit');
-        $actor = User::factory()->create(['company_id' => null]);
+        $actor = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         Role::findOrCreate('super_admin');
         $actor->assignRole('super_admin');
         $actor->givePermissionTo('users.edit');
@@ -284,7 +285,7 @@ class CashRegisterTest extends TestCase
     public function test_user_with_sales_cannot_be_changed_to_no_company(): void
     {
         Permission::findOrCreate('users.edit');
-        $actor = User::factory()->create(['company_id' => null]);
+        $actor = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         Role::findOrCreate('super_admin');
         $actor->assignRole('super_admin');
         $actor->givePermissionTo('users.edit');
@@ -337,12 +338,12 @@ class CashRegisterTest extends TestCase
 
     public function test_database_enforces_active_uniqueness_and_company_user_consistency(): void
     {
-        $indexDefinition = DB::table('pg_indexes')
+        $indexDefinition = DB::table('pg_indexes')->whereRaw('schemaname = current_schema()')
             ->where('tablename', 'cash_registers')
             ->where('indexname', 'cash_registers_one_active_per_user_unique')
             ->value('indexdef');
 
-        $constraints = DB::table('pg_constraint')
+        $constraints = DB::table('pg_constraint')->whereRaw('connamespace = current_schema()::regnamespace')
             ->whereIn('conname', [
                 'cash_registers_company_user_foreign',
                 'cash_registers_amounts_nonnegative_check',

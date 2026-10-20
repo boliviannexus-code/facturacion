@@ -273,11 +273,11 @@
                     <thead><tr><th>Documento</th><th>Fecha original</th><th class="text-end">Acción</th></tr></thead>
                     <tbody>
                     @forelse($manualInvoices as $manual)
-                        <tr><td><div class="fw-semibold">Manual N.º {{ $manual->manual_invoice_number }}</div><div class="text-secondary small">CAFC {{ $manual->cafcRange->cafc_code }}</div></td><td class="text-nowrap">{{ $manual->issued_manually_at->format('d/m/Y H:i') }}</td><td class="text-end">@if(auth()->user()->company_id) @can('manual-cafc.transcribe')<a class="btn btn-primary btn-sm" href="{{ route('billing.manual-cafc.transcribe.edit', $manual) }}">Transcribir</a>@endcan @else <span class="text-secondary small">Requiere usuario de empresa</span> @endif</td></tr>
+                        <tr><td><div class="fw-semibold">Manual N.º {{ $manual->manual_invoice_number }}</div><div class="text-secondary small">CAFC {{ $manual->cafcRange->cafc_code }}</div></td><td class="text-nowrap">{{ $manual->issued_manually_at->format('d/m/Y H:i') }}</td><td class="text-end">@if(\App\Support\CompanyContext::hasCompanyScope()) @can('manual-cafc.transcribe')<a class="btn btn-primary btn-sm" href="{{ route('billing.manual-cafc.transcribe.edit', $manual) }}">Transcribir</a>@endcan @else <span class="text-secondary small">Requiere usuario de empresa</span> @endif</td></tr>
                     @empty <x-ui.empty-row colspan="3" message="No hay facturas manuales pendientes." /> @endforelse
                     </tbody>
                 </table>
-                <x-slot:footer><div class="d-flex flex-wrap gap-2 justify-content-between align-items-center"><span class="text-secondary small">{{ $cafcRanges->count() }} rangos vigentes en este contexto.</span>@if(auth()->user()->company_id) @can('manual-cafc.use')<a class="btn btn-outline-danger btn-sm" href="{{ route('billing.manual-cafc.index') }}"><i class="ti ti-file-off me-1" aria-hidden="true"></i>Registrar factura física anulada</a>@endcan @endif</div></x-slot:footer>
+                <x-slot:footer><div class="d-flex flex-wrap gap-2 justify-content-between align-items-center"><span class="text-secondary small">{{ $cafcRanges->count() }} rangos vigentes en este contexto.</span>@if(\App\Support\CompanyContext::hasCompanyScope()) @can('manual-cafc.use')<a class="btn btn-outline-danger btn-sm" href="{{ route('billing.manual-cafc.index') }}"><i class="ti ti-file-off me-1" aria-hidden="true"></i>Registrar factura física anulada</a>@endcan @endif</div></x-slot:footer>
             </x-ui.table-card>
         </div>
     </div>

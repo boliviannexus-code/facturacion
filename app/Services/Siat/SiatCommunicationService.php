@@ -14,6 +14,7 @@ use App\Models\SinPointOfSale;
 use App\Models\User;
 use App\Services\Siat\Contracts\SiatCommunicationClient;
 use App\Services\Siat\Contracts\SiatDelay;
+use App\Support\CompanyContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -219,7 +220,7 @@ class SiatCommunicationService
         Carbon $checkedAt,
     ): void {
         $companyId = (int) $configuration->company_id;
-        $safeUserId = $user !== null && (int) $user->company_id === $companyId ? $user->getKey() : null;
+        $safeUserId = $user !== null && (int) CompanyContext::operatingCompanyId($user) === $companyId ? $user->getKey() : null;
 
         SinCommunicationLog::query()->create([
             'company_id' => $companyId,

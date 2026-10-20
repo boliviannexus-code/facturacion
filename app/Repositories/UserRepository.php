@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Company;
 use App\Models\User;
 use App\Support\CompanyContext;
+use App\Support\ReservedSuperAdmin;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Spatie\Permission\Models\Role;
@@ -65,9 +66,10 @@ class UserRepository
             ->count();
     }
 
-    public function rolesForSelect(): Collection
+    public function rolesForSelect(?User $target = null): Collection
     {
         return Role::query()
+            ->when(! $target || ! ReservedSuperAdmin::is($target), fn ($query) => $query->where('name', '!=', 'super_admin'))
             ->orderBy('name')
             ->get();
     }

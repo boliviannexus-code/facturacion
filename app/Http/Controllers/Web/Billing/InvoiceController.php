@@ -16,6 +16,7 @@ use App\Services\Billing\InvoiceCancellationReversalService;
 use App\Services\Billing\InvoiceCancellationService;
 use App\Services\Billing\InvoiceIssuanceService;
 use App\Services\Billing\PurchaseSaleInvoicePdfService;
+use App\Support\CompanyContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -43,7 +44,7 @@ class InvoiceController extends Controller
 
     public function cancelForm(SinInvoiceIssue $invoice, InvoiceCancellationService $service): View
     {
-        abort_unless($invoice->company_id === auth()->user()?->company_id, 404);
+        abort_unless($invoice->company_id === CompanyContext::operatingCompanyId(auth()->user()), 404);
 
         return view('billing.invoices.cancel', [
             'invoice' => $invoice->loadMissing('customer'),
@@ -67,7 +68,7 @@ class InvoiceController extends Controller
 
     public function reversalForm(SinInvoiceIssue $invoice, InvoiceCancellationReversalService $service): View
     {
-        abort_unless($invoice->company_id === auth()->user()?->company_id, 404);
+        abort_unless($invoice->company_id === CompanyContext::operatingCompanyId(auth()->user()), 404);
 
         return view('billing.invoices.reversal', [
             'invoice' => $invoice->loadMissing('customer'), 'deadline' => $service->deadline($invoice),
@@ -90,7 +91,7 @@ class InvoiceController extends Controller
 
     public function correctPaymentForm(SinInvoiceIssue $invoice): View
     {
-        abort_unless($invoice->company_id === auth()->user()?->company_id, 404);
+        abort_unless($invoice->company_id === CompanyContext::operatingCompanyId(auth()->user()), 404);
 
         return view('billing.invoices.correct-payment', [
             'invoice' => $invoice->loadMissing('sale.items'),
@@ -114,7 +115,7 @@ class InvoiceController extends Controller
 
     public function resendPendingOnline(SinInvoiceIssue $invoice): RedirectResponse
     {
-        abort_unless($invoice->company_id === auth()->user()?->company_id, 404);
+        abort_unless($invoice->company_id === CompanyContext::operatingCompanyId(auth()->user()), 404);
         abort_unless(
             $invoice->fiscal_status === InvoiceFiscalStatus::PendingOnlineSend
             && $invoice->emission_mode === InvoiceEmissionMode::Online,

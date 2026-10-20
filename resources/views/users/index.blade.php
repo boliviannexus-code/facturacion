@@ -55,27 +55,29 @@
                             <a class="btn btn-outline-secondary btn-sm" href="{{ route('users.show', $user) }}" data-modal-url="{{ route('users.show', $user) }}" data-modal-title="Detalle de usuario">Ver</a>
 
                             @if (! $user->trashed())
-                                @can('users.edit')
+                                @can('update', $user)
                                     <a class="btn btn-outline-primary btn-sm" href="{{ route('users.edit', $user) }}" data-modal-url="{{ route('users.edit', $user) }}" data-modal-title="Editar usuario">Editar</a>
                                 @endcan
 
-                                @can('users.change-password')
+                                @can('changePassword', $user)
                                     <a class="btn btn-outline-warning btn-sm" href="{{ route('users.change-password.form', $user) }}" data-modal-url="{{ route('users.change-password.form', $user) }}" data-modal-title="Cambiar contraseña">Contraseña</a>
                                 @endcan
 
-                                @can('users.assign-roles')
+                                @can('assignRoles', $user)
                                     <a class="btn btn-outline-info btn-sm" href="{{ route('users.roles.form', $user) }}" data-modal-url="{{ route('users.roles.form', $user) }}" data-modal-title="Asignar roles">Roles</a>
                                 @endcan
 
-                                @can('users.edit')
+                                @can('update', $user)
+                                    @unless (\App\Support\ReservedSuperAdmin::is($user))
                                     <form class="d-inline" method="POST" action="{{ route('users.toggle-status', $user) }}">
                                         @csrf
                                         @method('PATCH')
                                         <button class="btn btn-outline-secondary btn-sm" type="submit">{{ $user->is_active ? 'Desactivar' : 'Activar' }}</button>
                                     </form>
+                                    @endunless
                                 @endcan
 
-                                @can('users.delete')
+                                @can('delete', $user)
                                     <form class="d-inline" method="POST" action="{{ route('users.destroy', $user) }}" data-confirm-delete="Eliminar usuario?">
                                         @csrf
                                         @method('DELETE')
@@ -83,7 +85,7 @@
                                     </form>
                                 @endcan
                             @else
-                                @can('users.restore')
+                                @can('restore', $user)
                                     <form class="d-inline" method="POST" action="{{ route('users.restore', $user->id) }}">
                                         @csrf
                                         @method('PATCH')

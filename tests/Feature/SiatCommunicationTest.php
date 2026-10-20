@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Siat\SiatCommunicationResult;
 use App\Services\Siat\SiatCommunicationService;
 use App\Services\Siat\SiatWsdlRegistry;
+use App\Support\ReservedSuperAdmin;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
@@ -125,7 +126,7 @@ class SiatCommunicationTest extends TestCase
         Permission::findOrCreate('siat-communication.view');
         Role::findOrCreate('super_admin');
 
-        $user = User::factory()->create(['company_id' => null]);
+        $user = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         $user->assignRole('super_admin');
         $user->givePermissionTo('siat-communication.view');
 

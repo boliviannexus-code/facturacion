@@ -11,6 +11,7 @@ use App\Models\Sale;
 use App\Models\SinCatalogItem;
 use App\Models\SinPointOfSale;
 use App\Models\User;
+use App\Support\CompanyContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -26,7 +27,7 @@ final class SaleCreationService
     /** @param array<string, mixed> $data */
     public function create(User $user, array $data): Sale
     {
-        $companyId = (int) $user->company_id;
+        $companyId = (int) CompanyContext::operatingCompanyId($user);
         $documentSectorCode = (int) ($data['document_sector_code'] ?? InvoiceDocumentSector::PURCHASE_SALE);
 
         if ($companyId <= 0) {

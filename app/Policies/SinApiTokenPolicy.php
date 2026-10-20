@@ -10,7 +10,7 @@ class SinApiTokenPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->company_id !== null && $user->can('sin-api-tokens.view');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('sin-api-tokens.view');
     }
 
     public function view(User $user, SinApiToken $sinApiToken): bool
@@ -21,7 +21,7 @@ class SinApiTokenPolicy
 
     public function create(User $user): bool
     {
-        return $user->company_id !== null && $user->can('sin-api-tokens.manage');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('sin-api-tokens.manage');
     }
 
     public function update(User $user, SinApiToken $sinApiToken): bool

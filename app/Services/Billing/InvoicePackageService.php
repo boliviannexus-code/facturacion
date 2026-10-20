@@ -35,6 +35,7 @@ use App\Services\Billing\Packages\PackageTransportException;
 use App\Services\Billing\Packages\PackageValidationResult;
 use App\Services\Siat\SiatCufGenerator;
 use App\Services\Siat\SiatLogSanitizer;
+use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
@@ -1127,12 +1128,12 @@ final class InvoicePackageService
 
     private function safeActor(SinSignificantEvent $event, ?User $actor): ?User
     {
-        return $actor !== null && (int) $actor->company_id === (int) $event->company_id ? $actor : null;
+        return $actor !== null && (int) CompanyContext::operatingCompanyId($actor) === (int) $event->company_id ? $actor : null;
     }
 
     private function safePackageActor(SinInvoicePackage $package, ?User $actor): ?User
     {
-        return $actor !== null && (int) $actor->company_id === (int) $package->company_id ? $actor : null;
+        return $actor !== null && (int) CompanyContext::operatingCompanyId($actor) === (int) $package->company_id ? $actor : null;
     }
 
     private function maximumInvoices(): int

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Billing;
 
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,7 +41,7 @@ class TranscribeManualCafcInvoiceRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
 
         return [
             'customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],

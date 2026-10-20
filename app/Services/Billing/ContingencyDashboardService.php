@@ -201,16 +201,16 @@ final class ContingencyDashboardService
     private function companyContext(User $user, array $filters): array
     {
         $companies = Company::query()->where('is_active', true)->orderBy('name')->get();
-        $companyId = CompanyContext::isGlobalAdmin($user)
+        $companyId = CompanyContext::isGlobalAdmin($user) && ! CompanyContext::hasSelection($user)
             ? (int) ($filters['company_id'] ?? $companies->first()?->id)
-            : (int) $user->company_id;
+            : (int) CompanyContext::operatingCompanyId($user);
         $company = $companies->firstWhere('id', $companyId) ?? Company::query()->find($companyId);
 
         if (! $company || ! CompanyContext::belongsToUser((int) $company->id, $user)) {
             throw ValidationException::withMessages(['company_id' => 'La empresa seleccionada no está disponible para este usuario.']);
         }
 
-        return [$company, CompanyContext::isGlobalAdmin($user) ? $companies : $companies->where('id', $company->id)->values()];
+        return [$company, CompanyContext::isGlobalAdmin($user) && ! CompanyContext::hasSelection($user) ? $companies : $companies->where('id', $company->id)->values()];
     }
 
     /** @param Collection<int, SinBranch> $branches */

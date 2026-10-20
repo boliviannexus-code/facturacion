@@ -10,7 +10,7 @@ class ProductPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->company_id !== null && $user->can('products.view');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('products.view');
     }
 
     public function view(User $user, Product $product): bool
@@ -21,7 +21,7 @@ class ProductPolicy
 
     public function create(User $user): bool
     {
-        return $user->company_id !== null && $user->can('products.create');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('products.create');
     }
 
     public function update(User $user, Product $product): bool

@@ -44,6 +44,7 @@ use App\Services\Siat\SiatCufGenerator;
 use App\Services\Siat\SiatDateTime;
 use App\Services\Siat\SiatHealthCheckResult;
 use App\Services\Siat\SiatLogSanitizer;
+use App\Support\CompanyContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -215,7 +216,7 @@ class InvoiceIssuanceService
     {
         $invoice = SinInvoiceIssue::query()->withoutGlobalScope('company')->findOrFail($invoice->id);
 
-        if ((int) $invoice->company_id !== (int) $actor->company_id) {
+        if ((int) $invoice->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
             abort(404);
         }
 
@@ -241,7 +242,7 @@ class InvoiceIssuanceService
         $invoice = SinInvoiceIssue::query()->withoutGlobalScope('company')
             ->with(['sale.company', 'sale.user', 'sale.customer', 'sale.pointOfSale.branch', 'sale.items', 'authorization', 'cufd'])
             ->findOrFail($invoice->id);
-        if ((int) $invoice->company_id !== (int) $actor->company_id) {
+        if ((int) $invoice->company_id !== (int) CompanyContext::operatingCompanyId($actor)) {
             abort(404);
         }
         if (! in_array($invoice->fiscal_status, [InvoiceFiscalStatus::Observed, InvoiceFiscalStatus::Rejected], true)

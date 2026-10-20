@@ -91,7 +91,7 @@ final class ContingencyDashboardController extends Controller
             return back()->with('error', 'La empresa seleccionada no tiene un token API configurado.');
         }
 
-        $actor = (int) $request->user()->company_id === (int) $data['company_id'] ? $request->user() : null;
+        $actor = (int) CompanyContext::operatingCompanyId($request->user()) === (int) $data['company_id'] ? $request->user() : null;
         $result = $this->communication->verify($token, $point, $actor);
 
         return back()->with($result->available ? 'success' : 'error', $result->userMessage);
@@ -244,6 +244,6 @@ final class ContingencyDashboardController extends Controller
 
     private function actorId(Request $request, int $companyId): ?int
     {
-        return (int) $request->user()->company_id === $companyId ? (int) $request->user()->id : null;
+        return (int) CompanyContext::operatingCompanyId($request->user()) === $companyId ? (int) $request->user()->id : null;
     }
 }

@@ -11,7 +11,7 @@
             <div class="col-12 col-xl-4">
                 <x-ui.card title="Identidad del documento">
                     <dl class="row mb-0">
-                        <dt class="col-5 text-secondary">Empresa</dt><dd class="col-7">{{ auth()->user()->company->name }}</dd>
+                        <dt class="col-5 text-secondary">Empresa</dt><dd class="col-7">{{ \App\Support\CompanyContext::activeCompany()?->name }}</dd>
                         <dt class="col-5 text-secondary">CAFC</dt><dd class="col-7 fw-semibold">{{ $manual->cafcRange->cafc_code }}</dd>
                         <dt class="col-5 text-secondary">Número</dt><dd class="col-7 fw-semibold">{{ $manual->manual_invoice_number }}</dd>
                         <dt class="col-5 text-secondary">Sucursal</dt><dd class="col-7">{{ $manual->pointOfSale->branch->display_name }}</dd>

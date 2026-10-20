@@ -10,6 +10,7 @@ use App\Enums\InvoiceTestItemStatus;
 use App\Models\InvoiceTestBatch;
 use App\Models\InvoiceTestBatchItem;
 use App\Services\Billing\InvoiceCancellationReversalService;
+use App\Support\CompanyContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -33,6 +34,11 @@ final class ReverseInvoiceTestItemJob implements ShouldQueue
     ) {}
 
     public function handle(InvoiceCancellationReversalService $reversals): void
+    {
+        CompanyContext::runInCompany($this->companyId, fn () => $this->handleInCompany($reversals));
+    }
+
+    private function handleInCompany(InvoiceCancellationReversalService $reversals): void
     {
         $item = InvoiceTestBatchItem::query()->withoutGlobalScope('company')
             ->with(['batch.user', 'invoice'])

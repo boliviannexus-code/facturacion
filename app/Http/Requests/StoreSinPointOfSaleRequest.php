@@ -12,7 +12,7 @@ class StoreSinPointOfSaleRequest extends FormRequest
     {
         $branch = $this->route('branch');
 
-        return $this->user()?->company_id !== null
+        return CompanyContext::operatingCompanyId($this->user()) !== null
             && ($this->user()?->can('siat-branches.manage') ?? false)
             && $branch instanceof SinBranch
             && CompanyContext::belongsToUser($branch->company_id, $this->user());

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Billing;
 
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +21,7 @@ class RegisterSignificantEventRequest extends FormRequest
                 'integer',
                 Rule::in([1, 2, 3, 4]),
                 Rule::exists('sin_catalog_items', 'classifier_code')
-                    ->where('company_id', $this->user()?->company_id)
+                    ->where('company_id', CompanyContext::operatingCompanyId($this->user()))
                     ->where('catalog_key', 'eventos_significativos')
                     ->where('is_active', true),
             ],

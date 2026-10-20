@@ -3,13 +3,14 @@
 namespace App\Http\Requests;
 
 use App\Models\SinApiToken;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SaveSinApiTokenRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->company_id !== null
+        return CompanyContext::operatingCompanyId($this->user()) !== null
             && ($this->user()?->can('sin-api-tokens.manage') ?? false);
     }
 

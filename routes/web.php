@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Web\ActiveCompanyController;
 use App\Http\Controllers\Web\AdminDataTableController;
 use App\Http\Controllers\Web\AuditController;
 use App\Http\Controllers\Web\AuthController;
@@ -39,6 +40,8 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth', 'active_account'])->group(function (): void {
+    Route::post('active-company', [ActiveCompanyController::class, 'update'])
+        ->middleware('global_super_admin')->name('active-company.update');
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/', DashboardController::class)->name('dashboard');

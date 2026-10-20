@@ -10,7 +10,7 @@ class CashRegisterPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->company_id !== null && $user->can('cash-registers.view');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('cash-registers.view');
     }
 
     public function view(User $user, CashRegister $cashRegister): bool
@@ -21,7 +21,7 @@ class CashRegisterPolicy
 
     public function create(User $user): bool
     {
-        return $user->company_id !== null && $user->can('cash-registers.open');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('cash-registers.open');
     }
 
     public function close(User $user, CashRegister $cashRegister): bool

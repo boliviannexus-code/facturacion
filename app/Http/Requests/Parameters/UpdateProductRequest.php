@@ -5,6 +5,7 @@ namespace App\Http\Requests\Parameters;
 use App\Http\Requests\Parameters\Concerns\ValidatesSiatProductHomologation;
 use App\Models\Product;
 use App\Rules\UniqueProductInternalCode;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -20,7 +21,7 @@ class UpdateProductRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
         /** @var Product|null $product */
         $product = $this->route('product');
 

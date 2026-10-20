@@ -10,7 +10,7 @@ class SinAuthorizationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->company_id !== null && $user->can('sin-authorizations.view');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('sin-authorizations.view');
     }
 
     public function view(User $user, SinAuthorization $sinAuthorization): bool
@@ -21,7 +21,7 @@ class SinAuthorizationPolicy
 
     public function create(User $user): bool
     {
-        return $user->company_id !== null && $user->can('sin-authorizations.manage');
+        return CompanyContext::operatingCompanyId($user) !== null && $user->can('sin-authorizations.manage');
     }
 
     public function update(User $user, SinAuthorization $sinAuthorization): bool

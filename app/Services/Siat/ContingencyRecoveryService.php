@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Siat\Recovery\Contracts\RecoveryCufdProvider;
 use App\Services\Siat\Recovery\Contracts\SignificantEventRegistrar;
 use App\Services\Siat\Recovery\SignificantEventRegistrationRequest;
+use App\Support\CompanyContext;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -745,7 +746,7 @@ final class ContingencyRecoveryService
             return null;
         }
 
-        return (int) $actor->company_id === (int) $event->company_id ? $actor : null;
+        return (int) CompanyContext::operatingCompanyId($actor) === (int) $event->company_id ? $actor : null;
     }
 
     /**

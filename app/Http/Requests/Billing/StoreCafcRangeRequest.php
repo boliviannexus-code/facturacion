@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Billing;
 
 use App\Services\Billing\InvoiceDocumentSector;
+use App\Support\CompanyContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class StoreCafcRangeRequest extends FormRequest
 
     public function rules(): array
     {
-        $companyId = $this->user()?->company_id;
+        $companyId = CompanyContext::operatingCompanyId($this->user());
 
         return [
             'cafc_code' => ['required', 'string', 'max:128'],

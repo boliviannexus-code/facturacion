@@ -1,7 +1,9 @@
 @php
     $navbarCompany = \App\Support\CompanyContext::activeCompany(auth()->user());
-    $navbarUnreadCount = auth()->user()->unreadNotifications()->count();
-    $navbarNotifications = auth()->user()->notifications()->latest()->limit(8)->get();
+    $navbarUnreadCount = auth()->user()->unreadNotifications()
+        ->when(\App\Support\CompanyContext::hasSelection(), fn ($query) => $query->whereRaw("(data::jsonb ->> 'company_id') = ?", [(string) \App\Support\CompanyContext::operatingCompanyId()]))->count();
+    $navbarNotifications = auth()->user()->notifications()
+        ->when(\App\Support\CompanyContext::hasSelection(), fn ($query) => $query->whereRaw("(data::jsonb ->> 'company_id') = ?", [(string) \App\Support\CompanyContext::operatingCompanyId()]))->latest()->limit(8)->get();
 @endphp
 
 <header class="navbar navbar-expand-md d-print-none app-navbar">
@@ -29,6 +31,21 @@
         </div>
 
         <div class="navbar-nav flex-row align-items-center order-md-last ms-auto">
+            @if (\App\Support\CompanyContext::isGlobalAdmin())
+                <form method="POST" action="{{ route('active-company.update') }}" class="d-flex align-items-center gap-2 me-3">
+                    @csrf
+                    <div>
+                        <label for="active-company" class="form-label small mb-1">Empresa activa</label>
+                        <select id="active-company" name="company_id" class="form-select form-select-sm" required>
+                            <option value="" disabled @selected(! $navbarCompany)>Selecciona una empresa</option>
+                            @foreach (\App\Models\Company::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']) as $availableCompany)
+                                <option value="{{ $availableCompany->id }}" @selected($navbarCompany?->id === $availableCompany->id)>{{ $availableCompany->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm align-self-end">Cambiar</button>
+                </form>
+            @endif
             <div class="nav-item dropdown me-3">
                 <button class="nav-link px-2 position-relative border-0 bg-transparent" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Abrir notificaciones SIAT">
                     <i class="ti ti-bell fs-2" aria-hidden="true"></i>

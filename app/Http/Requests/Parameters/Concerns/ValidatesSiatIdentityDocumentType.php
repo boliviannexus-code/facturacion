@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Parameters\Concerns;
 
 use App\Models\Customer;
+use App\Support\CompanyContext;
 use App\Support\SiatIdentityDocumentTypes;
 use Illuminate\Validation\Validator;
 
@@ -15,7 +16,7 @@ trait ValidatesSiatIdentityDocumentType
                 return;
             }
 
-            $companyId = $this->user()?->company_id;
+            $companyId = CompanyContext::operatingCompanyId($this->user());
             $code = (string) $this->input('identity_document_type_code');
 
             if (! SiatIdentityDocumentTypes::canBeUsed($companyId, $code, $currentCustomer)) {

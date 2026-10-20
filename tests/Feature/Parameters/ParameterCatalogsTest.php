@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\ProductCategory;
 use App\Models\SinCatalogItem;
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -558,7 +559,7 @@ class ParameterCatalogsTest extends TestCase
         Permission::findOrCreate('customers.view');
         Role::findOrCreate('super_admin');
 
-        $user = User::factory()->create(['company_id' => null]);
+        $user = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         $user->assignRole('super_admin');
         $user->givePermissionTo('customers.view');
 
@@ -585,7 +586,7 @@ class ParameterCatalogsTest extends TestCase
 
     public function test_database_indexes_and_constraints_protect_parameter_integrity(): void
     {
-        $indexes = DB::table('pg_indexes')
+        $indexes = DB::table('pg_indexes')->whereRaw('schemaname = current_schema()')
             ->whereIn('tablename', ['product_categories', 'customers'])
             ->whereIn('indexname', [
                 'product_categories_company_name_unique',
@@ -594,7 +595,7 @@ class ParameterCatalogsTest extends TestCase
             ])
             ->pluck('indexname');
 
-        $constraints = DB::table('pg_constraint')
+        $constraints = DB::table('pg_constraint')->whereRaw('connamespace = current_schema()::regnamespace')
             ->whereIn('conname', [
                 'product_categories_name_not_blank_check',
                 'customers_identity_document_type_code_positive_check',

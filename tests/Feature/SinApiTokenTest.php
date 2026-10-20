@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\SinApiToken;
 use App\Models\User;
 use App\Services\Siat\SiatWsdlRegistry;
+use App\Support\ReservedSuperAdmin;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -196,7 +197,7 @@ class SinApiTokenTest extends TestCase
         Permission::findOrCreate('sin-api-tokens.view');
         Role::findOrCreate('super_admin');
 
-        $user = User::factory()->create(['company_id' => null]);
+        $user = User::factory()->create(['company_id' => null, 'email' => ReservedSuperAdmin::EMAIL]);
         $user->assignRole('super_admin');
         $user->givePermissionTo('sin-api-tokens.view');
 
