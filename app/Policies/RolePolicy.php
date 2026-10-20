@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Spatie\Permission\Models\Role;
 
 class RolePolicy
@@ -24,16 +25,16 @@ class RolePolicy
 
     public function update(User $user, Role $role): bool
     {
-        return $user->can('roles.edit');
+        return ($role->name !== ReservedSuperAdmin::ROLE || ReservedSuperAdmin::isGlobal($user)) && $user->can('roles.edit');
     }
 
     public function delete(User $user, Role $role): bool
     {
-        return $user->can('roles.delete');
+        return $role->name !== ReservedSuperAdmin::ROLE && $user->can('roles.delete');
     }
 
     public function assignPermissions(User $user, Role $role): bool
     {
-        return $user->can('roles.assign-permissions');
+        return ($role->name !== ReservedSuperAdmin::ROLE || ReservedSuperAdmin::isGlobal($user)) && $user->can('roles.assign-permissions');
     }
 }

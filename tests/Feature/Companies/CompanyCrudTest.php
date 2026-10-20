@@ -4,6 +4,7 @@ namespace Tests\Feature\Companies;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Support\ReservedSuperAdmin;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -103,7 +104,7 @@ class CompanyCrudTest extends TestCase
             Permission::findOrCreate($permission);
         }
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['email' => ReservedSuperAdmin::EMAIL]);
         Role::findOrCreate('super_admin')->givePermissionTo($permissions);
         $user->assignRole('super_admin');
         $user->givePermissionTo($permissions);

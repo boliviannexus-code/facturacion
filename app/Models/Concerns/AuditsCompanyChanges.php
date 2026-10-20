@@ -2,11 +2,13 @@
 
 namespace App\Models\Concerns;
 
+use App\Models\Company;
 use App\Support\CompanyContext;
+use OwenIt\Auditing\Auditable;
 
 trait AuditsCompanyChanges
 {
-    use \OwenIt\Auditing\Auditable;
+    use Auditable;
 
     public function transformAudit(array $data): array
     {
@@ -31,7 +33,7 @@ trait AuditsCompanyChanges
             return $companyId;
         }
 
-        if ($this instanceof \App\Models\Company && $this->getKey() !== null) {
+        if ($this instanceof Company && $this->getKey() !== null) {
             return (int) $this->getKey();
         }
 

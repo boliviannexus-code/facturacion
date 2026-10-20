@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Role\AssignRolePermissionsRequest;
 use App\Http\Requests\Role\StoreRoleRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
 use App\Http\Resources\RoleResource;
@@ -60,7 +61,7 @@ class RoleController extends Controller
         return $this->successResponse(null, 'Rol eliminado correctamente.');
     }
 
-    public function assignPermissions(UpdateRoleRequest $request, Role $role): JsonResponse
+    public function assignPermissions(AssignRolePermissionsRequest $request, Role $role): JsonResponse
     {
         $this->authorize('assignPermissions', $role);
 

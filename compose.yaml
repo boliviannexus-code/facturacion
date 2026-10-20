@@ -28,6 +28,42 @@ services:
                 condition: service_healthy
             mailpit:
                 condition: service_started
+    queue:
+        image: sail-8.5/app
+        restart: unless-stopped
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            pgsql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        command: php artisan queue:work --queue=siat-packages,siat-recovery,siat-synchronization,siat-monitoring,siat-manual-cafc,siat-health,default --tries=10 --timeout=300
+    scheduler:
+        image: sail-8.5/app
+        restart: unless-stopped
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            pgsql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        command: php artisan schedule:work
     pgsql:
         image: 'postgres:17'
         ports:

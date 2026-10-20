@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\SiatEnvironment;
+use App\Models\Concerns\AuditsCompanyChanges;
+use App\Models\Concerns\BelongsToCompany;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Contracts\Auditable;
+
+final class SinWsdlService extends Model implements Auditable
+{
+    use AuditsCompanyChanges, BelongsToCompany, SoftDeletes;
+
+    protected $fillable = [
+        'company_id',
+        'environment_code',
+        'key',
+        'name',
+        'category',
+        'url',
+        'description',
+        'is_active',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'environment_code' => SiatEnvironment::class,
+        ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+}

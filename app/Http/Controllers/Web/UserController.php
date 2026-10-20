@@ -84,7 +84,7 @@ class UserController extends Controller
         $data = [
             'user' => $user->load('roles'),
             'companies' => $this->userRepository->companiesForSelect(),
-            'roles' => $this->userRepository->rolesForSelect(),
+            'roles' => $this->userRepository->rolesForSelect($user),
         ];
 
         if ($request->ajax()) {
@@ -111,7 +111,7 @@ class UserController extends Controller
 
         $data = [
             'user' => $user->load('roles'),
-            'roles' => $this->userRepository->rolesForSelect(),
+            'roles' => $this->userRepository->rolesForSelect($user),
         ];
 
         if ($request->ajax()) {

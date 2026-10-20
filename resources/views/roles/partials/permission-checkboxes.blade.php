@@ -100,7 +100,6 @@
                                 <span class="permission-option-content">
                                     <span class="permission-option-title">{{ permission_action_label($action) }}</span>
                                     <span class="permission-option-description">{{ permission_action_description($action) }}</span>
-                                    <code>{{ $permission->name }}</code>
                                 </span>
                             </label>
                         @endforeach

@@ -42,8 +42,9 @@ resources/views/
 - Roles y permisos iniciales.
 - Empresas con CRUD web.
 - Auditoria basica.
-- Registro y aprobacion de alojamientos.
-- Catalogos globales de alojamientos.
+- Apertura, cierre e historial de cajas por usuario y empresa.
+- Parametros multiempresa para productos, categorias, medidas y clientes.
+- Parametros de autorizacion SIN/SIAT por empresa.
 - Dashboard administrativo base.
 - Layout administrativo CoreUI reutilizable.
 - Componentes Blade para sidebar, header, alerts, cards, stats, tablas y formularios.
@@ -94,7 +95,28 @@ Web:
 - `resource /roles`
 - `resource /permissions`
 - `GET /audits`
-- `GET /spaces`
+- `GET /cash-registers`
+- `POST /cash-registers`
+- `PATCH /cash-registers/{cashRegister}/close`
+- `GET /parameters/categories`
+- `GET /parameters/measurement-units`
+- `GET /parameters/customers`
+- `GET /parameters/products`
+- `GET /parameters/authorization`
+- `POST /parameters/authorization`
+- `PUT /parameters/authorization`
+
+## Parametros tributarios base
+
+El menu `Parametros` agrupa submodulos independientes y aislados por empresa:
+
+- `Categorias`: catalogo interno para clasificar productos. No sustituye el catalogo SIN de productos y servicios.
+- `Medidas`: registra `siat_code`, equivalente al `codigoClasificador` de la parametrica SIAT `sincronizarParametricaUnidadMedida`, y `description`, equivalente a `descripcion`.
+- `Clientes`: registra los datos necesarios para alimentar el XML de factura de compra y venta: codigo tipo documento identidad, numero documento, complemento, codigo cliente y nombre/razon social.
+- `Productos`: registra el codigo interno, descripcion, actividad economica, codigo de producto SIN homologado, categoria interna, unidad de medida y precio unitario predeterminado.
+- `Autorizacion`: registra una configuracion por empresa con `nit`, razon social, `codigoSistema`, `codigoAmbiente`, `codigoModalidad`, `codigoSucursal` y `codigoPuntoVenta`. El `codigoSistema` se almacena cifrado y queda excluido de auditoria en claro.
+
+No se cargan codigos oficiales por semilla local. Las listas oficiales deben venir luego desde sincronizacion SIAT para evitar valores inventados.
 
 API:
 
@@ -106,7 +128,7 @@ API:
 
 ## Modulos retirados para reconstruccion
 
-Se retiraron artefactos incompletos de sucursales, almacenes, productos, clientes, ventas, POS, compras, inventario, metodos de pago y reportes para evitar dependencias rotas. Esos dominios deben reingresar mediante migraciones, modelos, servicios, rutas y pruebas nuevas cuando se defina la arquitectura modular de facturacion.
+Se retiraron artefactos incompletos de alojamientos, sucursales, almacenes, ventas, POS, compras, inventario, metodos de pago y reportes para evitar dependencias rotas. Esos dominios deben reingresar mediante migraciones, modelos, servicios, rutas y pruebas nuevas cuando se defina la arquitectura modular de facturacion.
 
 ## Siguiente paso recomendado
 

@@ -13,7 +13,7 @@
                     <select class="form-select form-select-sm" id="audit-filter-company" name="company_id" data-tom-select data-placeholder="Todas">
                         <option value="">Todas</option>
                         @foreach ($companies as $company)
-                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                            <option value="{{ $company->id }}" @selected(request('company_id') == $company->id)>{{ $company->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -24,7 +24,7 @@
                 <select class="form-select form-select-sm" id="audit-filter-user" name="user_id" data-tom-select data-placeholder="Todos">
                     <option value="">Todos</option>
                     @foreach ($users as $user)
-                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        <option value="{{ $user->id }}" @selected(request('user_id') == $user->id)>{{ $user->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -33,10 +33,10 @@
                 <label class="form-label" for="audit-filter-event">Accion</label>
                 <select class="form-select form-select-sm" id="audit-filter-event" name="event">
                     <option value="">Todas</option>
-                    <option value="created">Creado</option>
-                    <option value="updated">Editado</option>
-                    <option value="deleted">Eliminado</option>
-                    <option value="restored">Restaurado</option>
+                    <option value="created" @selected(request('event') === 'created')>Creado</option>
+                    <option value="updated" @selected(request('event') === 'updated')>Editado</option>
+                    <option value="deleted" @selected(request('event') === 'deleted')>Eliminado</option>
+                    <option value="restored" @selected(request('event') === 'restored')>Restaurado</option>
                 </select>
             </div>
 
@@ -45,19 +45,19 @@
                 <select class="form-select form-select-sm" id="audit-filter-module" name="auditable_type" data-tom-select data-placeholder="Todos">
                     <option value="">Todos</option>
                     @foreach ($auditableTypes as $type => $label)
-                        <option value="{{ $type }}">{{ $label }}</option>
+                        <option value="{{ $type }}" @selected(request('auditable_type') === $type)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
 
             <div>
                 <label class="form-label" for="audit-filter-date-from">Desde</label>
-                <input class="form-control form-control-sm" id="audit-filter-date-from" name="date_from" type="date">
+                <input class="form-control form-control-sm" id="audit-filter-date-from" name="date_from" type="date" value="{{ request('date_from') }}">
             </div>
 
             <div>
                 <label class="form-label" for="audit-filter-date-to">Hasta</label>
-                <input class="form-control form-control-sm" id="audit-filter-date-to" name="date_to" type="date">
+                <input class="form-control form-control-sm" id="audit-filter-date-to" name="date_to" type="date" value="{{ request('date_to') }}">
             </div>
 
             <button class="btn btn-outline-secondary btn-sm" type="reset">
